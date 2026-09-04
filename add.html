@@ -1,106 +1,265 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Add Your Profile | PBIC Legends</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js"></script><style>
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:linear-gradient(135deg,#090d24,#271b68 55%,#0e7490);min-height:100vh;color:#fff;padding:28px}.wrap{max-width:720px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.back{color:#fff;text-decoration:none}.card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(18px);border-radius:28px;padding:28px;box-shadow:0 25px 70px rgba(0,0,0,.25)}h1{font-size:clamp(2rem,6vw,3.4rem);margin:0 0 8px}p{color:#d8dcf0}label{display:block;font-weight:700;margin:18px 0 8px}input,textarea{width:100%;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.2);color:#fff;border-radius:14px;padding:13px;font:inherit;outline:none}textarea{min-height:110px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.preview{display:none;margin-top:10px;width:150px;height:150px;border-radius:18px;object-fit:cover;border:2px solid rgba(255,255,255,.3)}button{border:0;border-radius:14px;padding:14px 18px;font-weight:800;font-size:1rem;cursor:pointer}.ai{background:#fff;color:#251d6a}.submit{width:100%;margin-top:22px;background:linear-gradient(135deg,#f472b6,#22d3ee);color:#fff}.status{margin-top:16px;padding:12px;border-radius:12px;background:rgba(255,255,255,.1);display:none}.hint{font-size:.85rem;color:#bbc2dc}@media(max-width:650px){body{padding:16px}.card{padding:20px}.row{grid-template-columns:1fr}}
-</style></head><body><div class="wrap"><div class="top"><a class="back" href="index.html">← Back</a><b>PBIC · Legends</b></div><div class="card"><div>✨ AI-powered profile submission</div><h1>Add Your Profile</h1><p>Send your photo, details and favourite song. An admin will review it before it appears on the Legends page.</p><form id="form"><label>Name *</label><input id="name" required maxlength="80" placeholder="Your full name"><div class="row"><div><label>Class</label><input id="className" maxlength="40" placeholder="10B"></div><div><label>Instagram</label><input id="instagram" maxlength="50" placeholder="username"></div></div><label>About you</label><textarea id="details" maxlength="500" placeholder="Hobbies, personality, favourite thing... "></textarea><button type="button" class="ai" id="aiBtn">🤖 Generate AI Introduction</button><label>Photo *</label><input id="photo" type="file" accept="image/*" required><img id="preview" class="preview" alt="Preview"><label>Song (optional)</label><input id="song" type="file" accept="audio/*"><div class="hint">Use music you have permission to upload.</div><button class="submit" type="submit">🚀 Send for Admin Approval</button><div id="status" class="status"></div></form></div></div><script>
-const $=id=>document.getElementById(id);
-let aiIntro='';
-
-$('photo').onchange=e=>{
-  const f=e.target.files[0];
-  if(f){
-    $('preview').src=URL.createObjectURL(f);
-    $('preview').style.display='block';
-  }
-};
-
-$('aiBtn').onclick=()=>{
-  const n=$('name').value.trim()||'This student';
-  const c=$('className').value.trim()||'PBIC';
-  const d=$('details').value.trim();
-  aiIntro=`Meet ${n} — a proud ${c} Legend at PBIC. ${d?d+' ':''}Bringing friendship, energy and unforgettable memories to The Legends. ✨`;
-  $('status').style.display='block';
-  $('status').textContent='🤖 AI introduction created: '+aiIntro;
-};
-
-async function makeClient(){
-  const cfg=window.PBIC_SUPABASE;
-  if(!cfg || !cfg.url || cfg.url.startsWith('YOUR_')){
-    throw new Error('Connect Supabase in supabase-config.js first.');
-  }
-
-  const publishableKey=cfg.anonKey;
-
-  // sb_publishable_* keys are not JWTs. Keep the key in the apikey
-  // header and do not send it as Authorization: Bearer.
-  const safeFetch=async(input, init={})=>{
-    const headers=new Headers(init.headers || {});
-    if(headers.get('Authorization') === `Bearer ${publishableKey}`){
-      headers.delete('Authorization');
-    }
-    return fetch(input,{...init,headers});
-  };
-
-  return window.supabase.createClient(cfg.url,publishableKey,{
-    global:{fetch:safeFetch}
-  });
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Add Your Profile | PBIC — The Legends</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js?v=20260904"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --ink:#0a0e27;--violet:#6d5bf5;--cyan:#22d3ee;--pink:#f472b6;
+ --paper:#f6f7fb;--card:#fff;--muted:#5b6478;--line:#e7e9f0;
 }
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.icon{width:16px;height:16px;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-$('form').onsubmit=async e=>{
-  e.preventDefault();
-  const st=$('status');
-  st.style.display='block';
-  st.textContent='Uploading securely…';
+/* ---------- TOP HEADER ---------- */
+.topbar{
+ position:relative;overflow:hidden;
+ background:linear-gradient(150deg,#221a5e 0%,var(--violet) 45%,var(--cyan) 100%);
+ color:#fff;padding:22px 0 56px;
+}
+.topbar:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 88% 8%,rgba(255,255,255,.12),transparent 45%)}
+.topbar-inner{width:min(960px,calc(100% - 32px));margin:auto;position:relative;z-index:2}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:34px}
+.nav a{color:#fff;text-decoration:none;font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px;opacity:.9}
+.nav a:hover{opacity:1}
+.brand{font-family:"Space Grotesk";font-weight:700;font-size:.95rem;letter-spacing:.02em}
+.brand span{color:var(--cyan)}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:7px 12px}
+.topbar h1{font-family:"Space Grotesk";font-size:clamp(2.3rem,6vw,3.8rem);line-height:.98;letter-spacing:-.03em;margin:16px 0 10px}
+.topbar p{max-width:600px;color:rgba(255,255,255,.85);font-size:1.02rem;line-height:1.6;margin:0}
 
-  try{
-    const sb=await makeClient();
-    const photo=$('photo').files[0];
-    const song=$('song').files[0];
+/* ---------- LAYOUT ---------- */
+.wrap{width:min(960px,calc(100% - 32px));margin:auto;padding:0 0 60px}
+.form-card{margin-top:-34px;position:relative;z-index:3;background:var(--card);border:1px solid var(--line);border-radius:28px;box-shadow:0 20px 55px rgba(10,14,39,.14);overflow:hidden}
+.section{padding:30px 28px;border-bottom:1px solid var(--line)}
+.section:last-child{border-bottom:0}
+.section-head{display:flex;align-items:center;gap:13px;margin-bottom:22px}
+.section-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#f0f0fb;color:var(--violet);border:1px solid #e6e4f9}
+.section-title{font-family:"Space Grotesk";font-size:1.15rem;font-weight:700}
+.section-note{color:var(--muted);font-size:.85rem;margin-top:2px}
 
-    if(!photo) throw new Error('Please choose a photo.');
+/* ---------- WHATSAPP-STYLE PHOTO PICKER ---------- */
+.photo-layout{display:flex;flex-direction:column;align-items:center;text-align:center}
+.avatar-wrap{position:relative;width:176px;height:176px;cursor:pointer}
+.photo-preview{
+ width:176px;height:176px;object-fit:cover;border-radius:20px;
+ background:#eef0f7;border:1px solid var(--line);box-shadow:0 14px 30px rgba(10,14,39,.10);
+ display:block;transition:.2s;
+}
+.avatar-wrap:hover .photo-preview{filter:brightness(.93)}
+.avatar-overlay{
+ position:absolute;inset:0;border-radius:20px;background:rgba(10,14,39,.45);
+ display:flex;align-items:center;justify-content:center;color:#fff;
+ opacity:0;transition:.2s;font-size:.8rem;font-weight:700;flex-direction:column;gap:6px;
+}
+.avatar-wrap:hover .avatar-overlay{opacity:1}
+.camera-badge{
+ position:absolute;right:-8px;bottom:-8px;width:40px;height:40px;border-radius:50%;
+ background:var(--ink);color:#fff;border:3px solid #fff;display:flex;align-items:center;justify-content:center;
+ cursor:pointer;box-shadow:0 6px 14px rgba(10,14,39,.3);transition:.2s;
+}
+.camera-badge:hover{background:var(--violet);transform:scale(1.06)}
+.photo-caption{margin-top:16px;font-size:.9rem;font-weight:600}
+.photo-sub{margin-top:3px;font-size:.8rem;color:var(--muted)}
+.remove-link{margin-top:10px;background:none;border:0;color:#c1425a;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;padding:4px}
 
-    const id=crypto.randomUUID();
-    const cleanName=f=>f.name.replace(/[^a-z0-9._-]/gi,'_');
+/* ---------- FIELDS ---------- */
+.row{display:grid;grid-template-columns:1fr 190px;gap:16px;margin-bottom:0}
+.field{margin-bottom:18px}.field:last-child{margin-bottom:0}
+label{display:block;font-size:.82rem;font-weight:700;margin:0 0 8px}
+input,select,textarea{width:100%;border:1px solid #dfe2ea;background:#fff;color:var(--ink);border-radius:12px;padding:13px 14px;font:inherit;outline:0;transition:.2s}
+input:focus,select:focus,textarea:focus{border-color:var(--violet);box-shadow:0 0 0 4px rgba(109,91,245,.10)}
+select option{background:#fff;color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+.helper{font-size:.78rem;color:var(--muted);margin-top:7px}
+.insta-input-wrap{position:relative}
+.insta-input-wrap input{padding-left:38px}
+.insta-input-wrap .icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted)}
 
-    const photoPath=id+'-'+cleanName(photo);
-    let {error}=await sb.storage
-      .from('pbic-photos')
-      .upload(photoPath,photo,{upsert:false,contentType:photo.type||undefined});
+.music{border:1px solid var(--line);border-radius:16px;padding:18px;background:#fafbfc}
+.music-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
-    if(error) throw error;
+.ai-box{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px;border:1px solid var(--line);background:#fafbfd;border-radius:14px}
+.ai-copy strong{font-family:"Space Grotesk";display:block}.ai-copy span{font-size:.8rem;color:var(--muted)}
+.ai-button{white-space:nowrap;background:#fff;color:var(--ink);border:1px solid #dfe2ea;padding:11px 14px;border-radius:11px;font-weight:700;cursor:pointer;transition:.2s}
+.ai-button:hover{border-color:#c9c6ff;background:#faf9ff}
 
-    const {data:pu}=sb.storage.from('pbic-photos').getPublicUrl(photoPath);
-    let songUrl=null;
+.submit-wrap{padding:24px 28px;background:#fbfbfd}
+.submit{width:100%;padding:15px 18px;border:0;border-radius:14px;background:linear-gradient(100deg,var(--violet),#5d7df5 55%,var(--cyan));color:#fff;font:inherit;font-weight:800;font-size:1rem;cursor:pointer;box-shadow:0 10px 25px rgba(109,91,245,.20)}
+.status{display:none;margin-top:13px;padding:13px 15px;border-radius:12px;background:#f6f7fb;border:1px solid var(--line);font-size:.9rem;line-height:1.45}
 
-    if(song){
-      const songPath=id+'-'+cleanName(song);
-      ({error}=await sb.storage
-        .from('pbic-songs')
-        .upload(songPath,song,{upsert:false,contentType:song.type||undefined}));
+/* ---------- CROP MODAL (WhatsApp-style) ---------- */
+.crop-modal{position:fixed;inset:0;z-index:50;background:rgba(10,14,39,.72);display:none;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(7px)}
+.crop-card{width:min(760px,100%);background:#fff;border-radius:24px;box-shadow:0 30px 90px rgba(0,0,0,.35);overflow:hidden}
+.crop-top{padding:19px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.crop-title{font-family:"Space Grotesk";font-weight:700;font-size:1.15rem}.close{border:0;background:#f1f2f6;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:1.1rem}
+.crop-body{padding:18px 20px}.crop-stage{height:min(62vh,500px);background:#111525;border-radius:17px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;touch-action:none}
+.crop-img{position:absolute;max-width:none;user-select:none;touch-action:none;cursor:grab}
+.crop-frame{position:absolute;pointer-events:none;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.6)}
+.crop-frame.square{width:min(72vw,390px);height:min(72vw,390px);border-radius:14px}
+.crop-frame.rect{width:min(78vw,500px);height:min(60vw,340px);border-radius:12px}
+.crop-tools{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:15px;flex-wrap:wrap}
+.aspect{display:flex;gap:7px}.aspect button{border:1px solid var(--line);background:#fff;padding:9px 12px;border-radius:10px;font-weight:700;cursor:pointer}.aspect button.active{background:#eeedff;color:#4d43bd;border-color:#d8d3ff}
+.zoom{display:flex;align-items:center;gap:9px;min-width:220px}.zoom input{padding:0;box-shadow:none;border:0}.crop-bottom{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}.crop-bottom button{padding:11px 16px;border-radius:11px;border:1px solid var(--line);font-weight:800;cursor:pointer}.use-crop{background:var(--ink);color:#fff;border-color:var(--ink)}
+.credit{text-align:center;padding:22px 20px 10px;color:var(--muted);font-size:.85rem}
 
-      if(error) throw error;
-      songUrl=sb.storage.from('pbic-songs').getPublicUrl(songPath).data.publicUrl;
-    }
+@media(max-width:680px){
+ .topbar{padding-bottom:70px}
+ .wrap{padding-top:0}
+ .form-card{margin-top:-46px}
+ .section{padding:22px}
+ .row,.music-grid{grid-template-columns:1fr}
+ .ai-box{align-items:flex-start;flex-direction:column}
+ .ai-button{width:100%}
+ .submit-wrap{padding:18px 20px}
+ .crop-stage{height:55vh}
+ .crop-frame.square{width:78vw;height:78vw}
+ .crop-frame.rect{width:86vw;height:57vw}
+}
+</style>
+</head>
+<body>
 
-    ({error}=await sb.from('submissions').insert({
-      name:$('name').value.trim(),
-      instagram:$('instagram').value.trim(),
-      class_name:$('className').value.trim(),
-      details:$('details').value.trim(),
-      photo_url:pu.publicUrl,
-      song_url:songUrl,
-      ai_intro:aiIntro,
-      status:'pending'
-    }));
+<div class="topbar">
+ <div class="topbar-inner">
+  <nav class="nav">
+   <a href="index.html">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Back to The Legends
+   </a>
+   <div class="brand">PBIC <span>THE LEGENDS</span></div>
+  </nav>
+  <div class="eyebrow">✦ Session 2026–27</div>
+  <h1>Add your<br>Legend profile.</h1>
+  <p>Create a clean profile card for the PBIC photo wall. Add your photo, class and details — an admin reviews it before it goes live.</p>
+ </div>
+</div>
 
-    if(error) throw error;
+<div class="wrap">
+<div class="form-card">
+<form id="form">
 
-    st.textContent='✅ Submitted! Your profile is waiting for admin approval.';
-    $('form').reset();
-    $('preview').style.display='none';
-    aiIntro='';
-  }catch(err){
-    console.error('PBIC submission error:',err);
-    st.textContent='❌ '+(err?.message || String(err));
-  }
-};
+<section class="section">
+ <div class="section-head">
+  <div class="section-icon i-photo"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg></div>
+  <div><div class="section-title">Profile photo</div><div class="section-note">Tap your photo to choose one, then drag and zoom to crop it.</div></div>
+ </div>
+ <div class="photo-layout">
+  <div class="avatar-wrap" id="avatarWrap">
+   <img id="avatar" class="photo-preview" alt="Photo preview">
+   <div class="avatar-overlay">
+    <svg class="icon" style="width:22px;height:22px" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+    Add photo
+   </div>
+   <div class="camera-badge" id="choosePhoto">
+    <svg class="icon" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+   </div>
+  </div>
+  <input id="photo" type="file" accept="image/*" hidden required>
+  <div class="photo-caption">Choose a square or rectangle crop</div>
+  <div class="photo-sub">JPG or PNG, clear face shot works best</div>
+  <button type="button" class="remove-link" id="removePhoto">Remove photo</button>
+ </div>
+</section>
 
-</script></body></html>
+<section class="section">
+ <div class="section-head">
+  <div class="section-icon i-user"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+  <div><div class="section-title">Your details</div><div class="section-note">Your name and class as they should appear on your card.</div></div>
+ </div>
+ <div class="row">
+  <div class="field"><label for="name">Full name *</label><input id="name" required maxlength="80" placeholder="Sachin Kumar"></div>
+  <div class="field"><label for="className">Class *</label><select id="className" required><option value="">Select</option><option>10A</option><option>10B</option></select></div>
+ </div>
+</section>
+
+<section class="section">
+ <div class="section-head">
+  <div class="section-icon i-insta"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37Z"/><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"/></svg></div>
+  <div><div class="section-title">Instagram</div><div class="section-note">So friends can find and tag you.</div></div>
+ </div>
+ <div class="field">
+  <label for="instagram">Instagram username</label>
+  <div class="insta-input-wrap">
+   <svg class="icon" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+   <input id="instagram" maxlength="50" placeholder="your_username" style="padding-left:38px">
+  </div>
+  <div class="helper">Just the username — no need to type the full Instagram link.</div>
+ </div>
+</section>
+
+<section class="section">
+ <div class="section-head">
+  <div class="section-icon i-music"><svg class="icon" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+  <div><div class="section-title">Music</div><div class="section-note">Add a song name, upload audio, or both.</div></div>
+ </div>
+ <div class="music">
+  <div class="music-grid">
+   <div class="field"><label for="songName">Song name</label><input id="songName" maxlength="120" placeholder="Believer"></div>
+   <div class="field"><label for="song">Upload audio</label><input id="song" type="file" accept="audio/*"></div>
+  </div>
+  <div class="helper">Use music you have permission to upload.</div>
+ </div>
+</section>
+
+<section class="section">
+ <div class="section-head">
+  <div class="section-icon i-info"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
+  <div><div class="section-title">About you <span style="color:var(--muted);font-weight:600">(optional)</span></div><div class="section-note">A short bio, plus a ready-made intro if you'd rather not write one.</div></div>
+ </div>
+ <div class="field"><label for="details">About you</label><textarea id="details" maxlength="500" placeholder="Hobbies, personality, favourite thing..."></textarea></div>
+ <div class="ai-box"><div class="ai-copy"><strong>AI Introduction</strong><span>Generate a ready-to-use PBIC Legends intro.</span></div><button type="button" class="ai-button" id="aiBtn">✦ Generate AI Introduction</button></div>
+</section>
+
+<div class="submit-wrap"><button class="submit" type="submit">Send for Admin Approval →</button><div id="status" class="status"></div></div>
+</form>
+</div>
+</div>
+
+<div class="credit">Made by Sachin Yadav 😎</div>
+
+<div id="cropModal" class="crop-modal">
+<div class="crop-card">
+<div class="crop-top"><div><div class="crop-title">Adjust your photo</div><div class="helper">Drag to position • use zoom to fine-tune</div></div><button class="close" type="button" id="closeCrop">×</button></div>
+<div class="crop-body"><div class="crop-stage" id="cropStage"><img id="cropImg" class="crop-img" alt=""><div id="cropFrame" class="crop-frame square"></div></div>
+<div class="crop-tools"><div class="aspect"><button type="button" id="squareBtn" class="active">Square</button><button type="button" id="rectBtn">Rectangle</button></div><div class="zoom">− <input id="zoom" type="range" min="1" max="3" step=".01" value="1.2"> + <span id="zoomVal">1.20×</span></div></div></div>
+<div class="crop-bottom"><button type="button" id="cancelCrop">Cancel</button><button type="button" class="use-crop" id="useCrop">Use this crop</button></div>
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let aiIntro='',croppedBlob=null,objectUrl=null,aspect='square';
+let crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};
+const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><rect width="100%" height="100%" fill="#eef0f7"/><text x="50%" y="51%" fill="#8992a6" font-family="Arial" font-size="26" text-anchor="middle">ADD PHOTO</text></svg>');
+$('avatar').src=placeholder;
+$('choosePhoto').onclick=()=>$('photo').click();
+$('avatarWrap').onclick=e=>{if(e.target.closest('#choosePhoto'))return;$('photo').click()};
+$('removePhoto').onclick=e=>{e.stopPropagation();croppedBlob=null;$('photo').value='';$('avatar').src=placeholder};
+$('photo').onchange=e=>{const f=e.target.files[0];if(!f)return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);$('cropImg').src=objectUrl;crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};$('zoom').value=1.2;$('zoomVal').textContent='1.20×';$('cropModal').style.display='flex';$('cropImg').onload=positionImage};
+function frameSize(){const s=$('cropStage');if(aspect==='square'){const w=Math.min(s.clientWidth*.72,390);return {w,h:w}}const w=Math.min(s.clientWidth*.78,500);const h=Math.min(s.clientHeight*.68,340);return {w,h}}
+function positionImage(){const img=$('cropImg'),f=frameSize();crop.base=Math.max(f.w/img.naturalWidth,f.h/img.naturalHeight);renderCrop()}
+function renderCrop(){const img=$('cropImg'),s=crop.base*crop.scale;img.style.width=img.naturalWidth*s+'px';img.style.height=img.naturalHeight*s+'px';img.style.transform=`translate(${crop.x}px,${crop.y}px)`}
+function setAspect(a){aspect=a;$('cropFrame').className='crop-frame '+a;$('squareBtn').classList.toggle('active',a==='square');$('rectBtn').classList.toggle('active',a==='rect');positionImage()}
+$('squareBtn').onclick=()=>setAspect('square');$('rectBtn').onclick=()=>setAspect('rect');
+$('zoom').oninput=e=>{crop.scale=+e.target.value;$('zoomVal').textContent=crop.scale.toFixed(2)+'×';renderCrop()};
+$('cropStage').addEventListener('pointerdown',e=>{crop.drag=true;crop.sx=e.clientX;crop.sy=e.clientY;crop.ox=crop.x;crop.oy=crop.y;$('cropImg').setPointerCapture?.(e.pointerId)});
+$('cropStage').addEventListener('pointermove',e=>{if(crop.drag){crop.x=crop.ox+e.clientX-crop.sx;crop.y=crop.oy+e.clientY-crop.sy;renderCrop()}});
+$('cropStage').addEventListener('pointerup',()=>crop.drag=false);$('cropStage').addEventListener('pointercancel',()=>crop.drag=false);
+function closeCrop(){$('cropModal').style.display='none';if(!croppedBlob){$('photo').value=''}}$('closeCrop').onclick=closeCrop;$('cancelCrop').onclick=closeCrop;
+$('useCrop').onclick=()=>{const img=$('cropImg'),stage=$('cropStage'),f=frameSize(),outW=1000,outH=Math.round(outW*f.h/f.w),canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;const ctx=canvas.getContext('2d'),s=crop.base*crop.scale,ir=img.getBoundingClientRect(),sr=stage.getBoundingClientRect(),ix=ir.left-sr.left,iy=ir.top-sr.top,fl=(stage.clientWidth-f.w)/2,ft=(stage.clientHeight-f.h)/2;ctx.drawImage(img,(fl-ix)/s,(ft-iy)/s,f.w/s,f.h/s,0,0,outW,outH);canvas.toBlob(b=>{croppedBlob=b;$('avatar').src=URL.createObjectURL(b);closeCrop()},'image/jpeg',.92)};
+
+$('aiBtn').onclick=()=>{const n=$('name').value.trim()||'This student',c=$('className').value||'PBIC',d=$('details').value.trim();aiIntro=`Meet ${n} — a proud ${c} Legend at PBIC. ${d?d+' ':''}Bringing friendship, energy and unforgettable memories to The Legends. ✨`;$('status').style.display='block';$('status').textContent='✦ '+aiIntro};
+
+async function makeClient(){const cfg=window.PBIC_SUPABASE;if(!cfg?.url||cfg.url.startsWith('YOUR_'))throw Error('Supabase configuration is missing.');const key=cfg.anonKey;if(!key||key.startsWith('YOUR_'))throw Error('Supabase publishable key is missing.');const safeFetch=async(input,init={})=>{const h=new Headers(init.headers||{});if(h.get('Authorization')===`Bearer ${key}`)h.delete('Authorization');return fetch(input,{...init,headers:h})};return window.supabase.createClient(cfg.url,key,{global:{fetch:safeFetch}})}
+$('form').addEventListener('submit',async e=>{e.preventDefault();e.stopPropagation();const st=$('status');st.style.display='block';try{if(!croppedBlob)throw Error('Please choose and crop your profile photo.');const sb=await makeClient(),id=crypto.randomUUID(),photoPath=id+'-profile.jpg';let r=await sb.storage.from('pbic-photos').upload(photoPath,croppedBlob,{upsert:false,contentType:'image/jpeg'});if(r.error)throw Error('Photo upload failed: '+r.error.message);const photoUrl=sb.storage.from('pbic-photos').getPublicUrl(photoPath).data.publicUrl;let songUrl=null;const song=$('song').files[0];if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');r=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false,contentType:song.type||undefined});if(r.error)throw Error('Song upload failed: '+r.error.message);songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';$('avatar').src=placeholder}catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}});
+</script>
+</body>
+</html>
