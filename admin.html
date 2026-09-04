@@ -3,113 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PBIC Admin | Approvals & Profiles</title>
+<title>PBIC Admin Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js?v=20260904"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f6f7fb;color:#0a0e27;padding:25px}.wrap{max-width:1100px;margin:auto}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:25px}a{color:inherit}.section{margin:28px 0}.section h2{margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:16px;box-shadow:0 8px 24px rgba(10,14,39,.08)}img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px}.meta{padding:12px 0}.name{font-size:1.3rem;font-weight:800}.muted{color:#64748b;font-size:.9rem;margin-top:4px}.intro{margin-top:10px;color:#334155;line-height:1.5}.actions{display:flex;gap:9px;margin-top:14px}.actions button{flex:1;border:0;border-radius:12px;padding:12px;font-weight:800;cursor:pointer}.approve{background:#16a34a;color:#fff}.reject,.delete{background:#fee2e2;color:#991b1b}.keep{background:#e0f2fe;color:#075985}.login{max-width:420px;margin:80px auto;background:#fff;padding:25px;border-radius:20px}input{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:7px 0 12px}h1{margin:0}.status{margin:10px 0;padding:10px;background:#eef2ff;border-radius:10px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.smallbtn{border:0;border-radius:10px;padding:9px 13px;font-weight:700;cursor:pointer;background:#e2e8f0}.empty{grid-column:1/-1}.danger-note{font-size:.85rem;color:#991b1b;margin-top:8px}@media(max-width:600px){body{padding:15px}.toolbar{align-items:flex-start;flex-direction:column}}
+:root{--bg:#f4f7fb;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--blue:#2563eb;--blue2:#1d4ed8;--green:#16a34a;--red:#dc2626;--shadow:0 12px 35px rgba(15,23,42,.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,textarea{font:inherit}.shell{min-height:100vh}.header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}.header-in{max-width:1280px;margin:auto;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px}.brand{display:flex;align-items:center;gap:12px}.shield{width:42px;height:42px;border-radius:13px;background:#eff6ff;display:grid;place-items:center;font-size:23px}.brand h1{font-size:20px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}.header-actions{display:flex;gap:10px}.btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:11px;padding:10px 14px;font-weight:750;cursor:pointer}.btn:hover{background:#f8fafc}.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue2)}.btn-danger{background:#fff1f2;border-color:#fecdd3;color:#be123c}.btn-green{background:#ecfdf5;border-color:#bbf7d0;color:#15803d}
+.main{max-width:1280px;margin:auto;padding:28px 24px 50px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}.stat{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}.stat-label{font-size:13px;color:var(--muted);font-weight:700}.stat-value{font-size:30px;font-weight:850;margin-top:5px}.tabs{display:flex;gap:8px;background:#eaf0f7;padding:5px;border-radius:14px;width:max-content;margin-bottom:22px}.tab{border:0;background:transparent;border-radius:10px;padding:11px 18px;font-weight:800;color:#475569;cursor:pointer}.tab.active{background:#fff;color:#0f172a;box-shadow:0 2px 8px rgba(15,23,42,.08)}.section{display:none}.section.active{display:block}.section-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:16px}.section-head h2{margin:0;font-size:22px}.section-head p{margin:5px 0 0;color:var(--muted);font-size:14px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}.profile{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}.photo{width:100%;aspect-ratio:1/1;object-fit:cover;background:#e2e8f0;display:block}.profile-body{padding:16px}.profile-name{font-size:19px;font-weight:850;margin-bottom:5px}.profile-meta{font-size:13px;color:var(--muted);min-height:20px}.profile-about{font-size:14px;color:#475569;line-height:1.45;margin:10px 0 14px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.empty{background:#fff;border:1px dashed #cbd5e1;border-radius:18px;padding:45px;text-align:center;color:var(--muted);grid-column:1/-1}.request{background:#fff;border:1px solid var(--line);border-radius:20px;padding:16px;display:grid;grid-template-columns:130px 1fr auto;gap:18px;align-items:center;box-shadow:var(--shadow)}.request img{width:130px;height:130px;border-radius:15px;object-fit:cover;background:#e2e8f0}.request h3{margin:0 0 5px;font-size:19px}.request .details{color:#475569;font-size:14px;line-height:1.5}.request-actions{display:flex;flex-direction:column;gap:9px;min-width:145px}.pill{display:inline-block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:4px 8px;margin-bottom:8px}.login-wrap{max-width:420px;margin:90px auto;padding:24px}.login{background:#fff;border:1px solid var(--line);border-radius:22px;padding:28px;box-shadow:var(--shadow)}.login h2{margin:0}.login p{color:var(--muted);font-size:14px}.field{margin:15px 0}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:7px}.field input,.field textarea{width:100%;border:1px solid #cbd5e1;border-radius:11px;padding:11px 12px;outline:none}.field input:focus,.field textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 3px #dbeafe}.modal{position:fixed;inset:0;background:rgba(15,23,42,.58);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}.modal.show{display:flex}.modal-card{width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:22px;padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.25)}.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.modal-head h2{margin:0}.close{border:0;background:#f1f5f9;border-radius:10px;width:38px;height:38px;cursor:pointer;font-size:18px}.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}.status{padding:12px 14px;border-radius:12px;background:#eff6ff;color:#1e40af;margin:12px 0;font-size:14px}.error{background:#fef2f2;color:#b91c1c}.toast{position:fixed;right:20px;bottom:20px;background:#0f172a;color:#fff;padding:13px 16px;border-radius:12px;box-shadow:var(--shadow);display:none;z-index:100}.toast.show{display:block}
+@media(max-width:800px){.stats{grid-template-columns:1fr 1fr}.request{grid-template-columns:90px 1fr}.request img{width:90px;height:90px}.request-actions{grid-column:1/-1;flex-direction:row}.request-actions .btn{flex:1}}
+@media(max-width:560px){.header-in,.main{padding-left:15px;padding-right:15px}.stats{grid-template-columns:1fr}.header-actions .btn:first-child{display:none}.grid{grid-template-columns:1fr}.tabs{width:100%}.tab{flex:1}.request{grid-template-columns:1fr}.request img{width:100%;height:auto;aspect-ratio:1}.request-actions{grid-column:auto}.section-head{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <div><h1>🛡️ Admin Panel</h1><div class="muted">Approve new Legends and manage published profiles.</div></div>
-    <a href="index.html">← Website</a>
+<div id="root"></div>
+<div id="modal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head"><h2>Edit Profile</h2><button class="close" onclick="closeEdit()">×</button></div>
+    <div id="editStatus"></div>
+    <form id="editForm">
+      <input type="hidden" id="editId">
+      <div class="field"><label>Name</label><input id="editName" required maxlength="80"></div>
+      <div class="field"><label>Class</label><input id="editClass" maxlength="40"></div>
+      <div class="field"><label>Instagram</label><input id="editInstagram" maxlength="50"></div>
+      <div class="field"><label>About</label><textarea id="editDetails" maxlength="500" rows="5"></textarea></div>
+      <div class="field"><label>AI Introduction</label><textarea id="editIntro" maxlength="800" rows="4"></textarea></div>
+      <div class="field"><label>Photo URL</label><input id="editPhoto" placeholder="https://..."></div>
+      <div class="field"><label>Song URL</label><input id="editSong" placeholder="https://..."></div>
+      <div class="modal-actions"><button type="button" class="btn" onclick="closeEdit()">Cancel</button><button class="btn btn-primary" type="submit">Save Changes</button></div>
+    </form>
   </div>
-  <div id="app"></div>
 </div>
+<div id="toast" class="toast"></div>
 <script>
-const app=document.getElementById('app');
+const root=document.getElementById('root');
 const cfg=window.PBIC_SUPABASE||{};
-let sb;
-
+let sb=null;
 const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-
-function login(){
-  app.innerHTML=`<div class="login"><h2>Admin Login</h2><p class="muted">Use the Supabase Auth account you created for the admin.</p><input id="email" type="email" placeholder="Admin email"><input id="pass" type="password" placeholder="Password"><button class="smallbtn" style="width:100%" onclick="doLogin()">Login</button><div id="msg" class="status"></div></div>`;
+const publishableKey=cfg.anonKey;
+function safeClient(){
+  const safeFetch=async(input,init={})=>{const headers=new Headers(init.headers||{});if(headers.get('Authorization')===`Bearer ${publishableKey}`)headers.delete('Authorization');return fetch(input,{...init,headers});};
+  return window.supabase.createClient(cfg.url,publishableKey,{global:{fetch:safeFetch}});
 }
-
-async function doLogin(){
-  const m=document.getElementById('msg');
-  m.textContent='Logging in…';
-  const {error}=await sb.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value});
-  if(error){m.textContent='❌ '+error.message;return;}
-  await load();
-}
-
-async function load(){
-  app.innerHTML='<div class="status">Loading…</div>';
-  const [pendingRes,profilesRes]=await Promise.all([
-    sb.from('submissions').select('*').eq('status','pending').order('created_at',{ascending:false}),
-    sb.from('profiles').select('*').order('name',{ascending:true})
-  ]);
-  if(pendingRes.error){app.innerHTML='<div class="status">❌ '+esc(pendingRes.error.message)+'</div>';return;}
-  if(profilesRes.error){app.innerHTML='<div class="status">❌ '+esc(profilesRes.error.message)+'</div>';return;}
-  const pending=pendingRes.data||[];
-  const profiles=profilesRes.data||[];
-  app.innerHTML=`
-    <div class="section">
-      <div class="toolbar"><div><h2>📥 Pending Submissions</h2><div class="muted">New profiles waiting for approval.</div></div><button class="smallbtn" onclick="load()">↻ Refresh</button></div>
-      <div class="grid">${pending.length?pending.map(x=>pendingCard(x)).join(''):'<div class="status empty">🎉 No pending submissions.</div>'}</div>
-    </div>
-    <div class="section">
-      <div class="toolbar"><div><h2>👥 Published Profiles</h2><div class="muted">Names are shown alphabetically. Keep or delete any profile.</div></div></div>
-      <div class="grid">${profiles.length?profiles.map(x=>profileCard(x)).join(''):'<div class="status empty">No published profiles yet.</div>'}</div>
-    </div>`;
-}
-
-function pendingCard(x){
-  return `<article class="card"><img src="${esc(x.photo_url)}" alt="${esc(x.name)}"><div class="meta"><div class="name">${esc(x.name)}</div><div class="muted">${esc(x.class_name||'')}${x.instagram?' · @'+esc(x.instagram):''}</div><div class="intro">${esc(x.ai_intro||x.details||'No details')}</div><div class="actions"><button class="approve" onclick="approve('${x.id}')">✓ Approve & Publish</button><button class="reject" onclick="rejectIt('${x.id}')">Reject</button></div></div></article>`;
-}
-
-function profileCard(x){
-  return `<article class="card"><img src="${esc(x.photo_url)}" alt="${esc(x.name)}"><div class="meta"><div class="name">${esc(x.name)}</div><div class="muted">${esc(x.class_name||'')}${x.instagram?' · @'+esc(x.instagram):''}</div><div class="intro">${esc(x.ai_intro||x.details||'No details')}</div><div class="actions"><button class="keep" onclick="keepProfile()">✓ Keep</button><button class="delete" onclick="deleteProfile('${x.id}','${esc(x.name).replace(/'/g,"\'")}')">🗑 Delete</button></div></div></article>`;
-}
-
-async function approve(id){
-  const {data:s,error}=await sb.from('submissions').select('*').eq('id',id).single();
-  if(error){alert(error.message);return;}
-  const r=await sb.from('profiles').insert({submission_id:s.id,name:s.name,instagram:s.instagram,class_name:s.class_name,details:s.details,photo_url:s.photo_url,song_url:s.song_url,ai_intro:s.ai_intro});
-  if(r.error){alert(r.error.message);return;}
-  const u=await sb.from('submissions').update({status:'approved'}).eq('id',id);
-  if(u.error){alert(u.error.message);return;}
-  await load();
-}
-
-async function rejectIt(id){
-  const r=await sb.from('submissions').update({status:'rejected'}).eq('id',id);
-  if(r.error){alert(r.error.message);return;}
-  await load();
-}
-
-function keepProfile(){
-  alert('This profile is already published and will stay on the website.');
-}
-
-async function deleteProfile(id){
-  if(!confirm('Delete this profile from the published website? This cannot be undone.'))return;
-  const {error}=await sb.from('profiles').delete().eq('id',id);
-  if(error){alert('Delete failed: '+error.message);return;}
-  await load();
-}
-
-(async()=>{
-  try{
-    if(!cfg.url||cfg.url.startsWith('YOUR_')||!cfg.anonKey||cfg.anonKey.startsWith('YOUR_')){
-      app.innerHTML='<div class="status">Configure Supabase first: edit <b>supabase-config.js</b>.</div>';return;
-    }
-    const publishableKey=cfg.anonKey;
-    const safeFetch=async(input,init={})=>{
-      const headers=new Headers(init.headers||{});
-      if(headers.get('Authorization')===`Bearer ${publishableKey}`)headers.delete('Authorization');
-      return fetch(input,{...init,headers});
-    };
-    sb=window.supabase.createClient(cfg.url,publishableKey,{global:{fetch:safeFetch}});
-    const {data,error}=await sb.auth.getSession();
-    if(error)throw error;
-    data.session?load():login();
-  }catch(e){app.innerHTML='<div class="status">❌ '+esc(e.message||e)+'</div>';}
-})();
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+function login(){root.innerHTML=`<div class="login-wrap"><div class="login"><div class="shield">🛡️</div><h2>PBIC Admin</h2><p>Sign in to manage published Legends and review profile requests.</p><div class="field"><label>Email</label><input id="email" type="email" placeholder="admin@example.com"></div><div class="field"><label>Password</label><input id="pass" type="password" placeholder="Password"></div><button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign In</button><div id="loginMsg"></div></div></div>`}
+async function doLogin(){const m=document.getElementById('loginMsg');m.className='status';m.textContent='Signing in…';const {error}=await sb.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('pass').value});if(error){m.className='status error';m.textContent='❌ '+error.message;return}await load()}
+function shell(){root.innerHTML=`<header class="header"><div class="header-in"><div class="brand"><div class="shield">🛡️</div><div><h1>PBIC Admin Dashboard</h1><p>The Legends · Content Management</p></div></div><div class="header-actions"><button class="btn" onclick="load()">↻ Refresh</button><a class="btn" href="index.html">View Website</a></div></div></header><main class="main"><div id="dashboard"></div></main>`}
+async function load(){shell();const d=document.getElementById('dashboard');d.innerHTML='<div class="status">Loading dashboard…</div>';const [p,r]=await Promise.all([sb.from('profiles').select('*').order('name',{ascending:true}),sb.from('submissions').select('*').eq('status','pending').order('created_at',{ascending:false})]);if(p.error||r.error){d.innerHTML=`<div class="status error">❌ ${esc((p.error||r.error).message)}</div>`;return}const profiles=p.data||[],requests=r.data||[];d.innerHTML=`<div class="stats"><div class="stat"><div class="stat-label">ALL PROFILES</div><div class="stat-value">${profiles.length}</div></div><div class="stat"><div class="stat-label">PENDING REQUESTS</div><div class="stat-value">${requests.length}</div></div><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:22px;color:#16a34a">● Online</div></div></div><div class="tabs"><button class="tab active" id="tabProfiles" onclick="switchTab('profiles')">👥 All Profiles</button><button class="tab" id="tabRequests" onclick="switchTab('requests')">📥 Requests${requests.length?` (${requests.length})`:''}</button></div><section id="profilesSection" class="section active"><div class="section-head"><div><h2>All Profiles</h2><p>Published Legends, sorted alphabetically by name.</p></div></div><div class="grid">${profiles.length?profiles.map(profileCard).join(''):'<div class="empty">No published profiles yet.</div>'}</div></section><section id="requestsSection" class="section"><div class="section-head"><div><h2>Profile Requests</h2><p>Review new submissions before they appear on the website.</p></div></div><div style="display:grid;gap:14px">${requests.length?requests.map(requestCard).join(''):'<div class="empty">🎉 No pending requests right now.</div>'}</div></section>`}
+function switchTab(tab){document.getElementById('profilesSection').classList.toggle('active',tab==='profiles');document.getElementById('requestsSection').classList.toggle('active',tab==='requests');document.getElementById('tabProfiles').classList.toggle('active',tab==='profiles');document.getElementById('tabRequests').classList.toggle('active',tab==='requests')}
+function profileCard(x){return `<article class="profile"><img class="photo" src="${esc(x.photo_url)}" alt="${esc(x.name)}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 400%22%3E%3Crect width=%22400%22 height=%22400%22 fill=%22%23e2e8f0%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22 fill=%22%2364758b%22 font-size=%2222%22%3ENo Photo%3C/text%3E%3C/svg%3E'"><div class="profile-body"><div class="profile-name">${esc(x.name)}</div><div class="profile-meta">${esc(x.class_name||'')}${x.instagram?' · @'+esc(x.instagram):''}</div><div class="profile-about">${esc(x.ai_intro||x.details||'No description')}</div><div class="actions"><button class="btn btn-primary" onclick='openEdit(${JSON.stringify(x)})'>✏️ Edit</button><button class="btn btn-danger" onclick="deleteProfile('${esc(x.id)}')">🗑️ Delete</button></div></div></article>`}
+function requestCard(x){return `<article class="request"><img src="${esc(x.photo_url)}" alt="${esc(x.name)}"><div><span class="pill">Pending Review</span><h3>${esc(x.name)}</h3><div class="details"><b>${esc(x.class_name||'Class not provided')}</b>${x.instagram?' · @'+esc(x.instagram):''}<br>${esc(x.ai_intro||x.details||'No description')}</div></div><div class="request-actions"><button class="btn btn-green" onclick="approve('${esc(x.id)}')">✓ Approve</button><button class="btn btn-danger" onclick="rejectRequest('${esc(x.id)}')">✕ Reject</button></div></article>`}
+function openEdit(x){document.getElementById('editId').value=x.id;document.getElementById('editName').value=x.name||'';document.getElementById('editClass').value=x.class_name||'';document.getElementById('editInstagram').value=x.instagram||'';document.getElementById('editDetails').value=x.details||'';document.getElementById('editIntro').value=x.ai_intro||'';document.getElementById('editPhoto').value=x.photo_url||'';document.getElementById('editSong').value=x.song_url||'';document.getElementById('editStatus').innerHTML='';document.getElementById('modal').classList.add('show')}
+function closeEdit(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('editForm').addEventListener('submit',async e=>{e.preventDefault();const s=document.getElementById('editStatus');s.className='status';s.textContent='Saving changes…';const id=document.getElementById('editId').value;const {error}=await sb.from('profiles').update({name:document.getElementById('editName').value.trim(),class_name:document.getElementById('editClass').value.trim(),instagram:document.getElementById('editInstagram').value.trim(),details:document.getElementById('editDetails').value.trim(),ai_intro:document.getElementById('editIntro').value.trim(),photo_url:document.getElementById('editPhoto').value.trim(),song_url:document.getElementById('editSong').value.trim()}).eq('id',id);if(error){s.className='status error';s.textContent='❌ '+error.message;return}closeEdit();showToast('Profile updated successfully');await load()});
+async function approve(id){if(!confirm('Approve and publish this profile?'))return;const {data:s,error}=await sb.from('submissions').select('*').eq('id',id).single();if(error){showToast('❌ '+error.message);return}const r=await sb.from('profiles').insert({submission_id:s.id,name:s.name,instagram:s.instagram,class_name:s.class_name,details:s.details,photo_url:s.photo_url,song_url:s.song_url,ai_intro:s.ai_intro});if(r.error){showToast('❌ '+r.error.message);return}const u=await sb.from('submissions').update({status:'approved'}).eq('id',id);if(u.error){showToast('❌ '+u.error.message);return}showToast('Profile approved and published');await load()}
+async function rejectRequest(id){if(!confirm('Reject this profile request?'))return;const {error}=await sb.from('submissions').update({status:'rejected'}).eq('id',id);if(error){showToast('❌ '+error.message);return}showToast('Request rejected');await load()}
+async function deleteProfile(id){if(!confirm('Delete this profile from the published website? This cannot be undone.'))return;const {error}=await sb.from('profiles').delete().eq('id',id);if(error){showToast('❌ Delete failed: '+error.message);return}showToast('Profile deleted');await load()}
+(async()=>{try{if(!cfg.url||cfg.url.startsWith('YOUR_')||!cfg.anonKey||cfg.anonKey.startsWith('YOUR_')){root.innerHTML='<div class="login-wrap"><div class="status error">Supabase configuration is missing. Check supabase-config.js.</div></div>';return}sb=safeClient();const {data,error}=await sb.auth.getSession();if(error)throw error;data.session?load():login()}catch(e){root.innerHTML=`<div class="login-wrap"><div class="status error">❌ ${esc(e.message||e)}</div></div>`}})();
 </script>
 </body>
 </html>
