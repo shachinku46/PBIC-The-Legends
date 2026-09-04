@@ -1,8 +1,107 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Add Your Profile | PBIC Legends</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js"></script><style>
 *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:linear-gradient(135deg,#090d24,#271b68 55%,#0e7490);min-height:100vh;color:#fff;padding:28px}.wrap{max-width:720px;margin:auto}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.back{color:#fff;text-decoration:none}.card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(18px);border-radius:28px;padding:28px;box-shadow:0 25px 70px rgba(0,0,0,.25)}h1{font-size:clamp(2rem,6vw,3.4rem);margin:0 0 8px}p{color:#d8dcf0}label{display:block;font-weight:700;margin:18px 0 8px}input,textarea{width:100%;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.2);color:#fff;border-radius:14px;padding:13px;font:inherit;outline:none}textarea{min-height:110px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.preview{display:none;margin-top:10px;width:150px;height:150px;border-radius:18px;object-fit:cover;border:2px solid rgba(255,255,255,.3)}button{border:0;border-radius:14px;padding:14px 18px;font-weight:800;font-size:1rem;cursor:pointer}.ai{background:#fff;color:#251d6a}.submit{width:100%;margin-top:22px;background:linear-gradient(135deg,#f472b6,#22d3ee);color:#fff}.status{margin-top:16px;padding:12px;border-radius:12px;background:rgba(255,255,255,.1);display:none}.hint{font-size:.85rem;color:#bbc2dc}@media(max-width:650px){body{padding:16px}.card{padding:20px}.row{grid-template-columns:1fr}}
 </style></head><body><div class="wrap"><div class="top"><a class="back" href="index.html">← Back</a><b>PBIC · Legends</b></div><div class="card"><div>✨ AI-powered profile submission</div><h1>Add Your Profile</h1><p>Send your photo, details and favourite song. An admin will review it before it appears on the Legends page.</p><form id="form"><label>Name *</label><input id="name" required maxlength="80" placeholder="Your full name"><div class="row"><div><label>Class</label><input id="className" maxlength="40" placeholder="10B"></div><div><label>Instagram</label><input id="instagram" maxlength="50" placeholder="username"></div></div><label>About you</label><textarea id="details" maxlength="500" placeholder="Hobbies, personality, favourite thing... "></textarea><button type="button" class="ai" id="aiBtn">🤖 Generate AI Introduction</button><label>Photo *</label><input id="photo" type="file" accept="image/*" required><img id="preview" class="preview" alt="Preview"><label>Song (optional)</label><input id="song" type="file" accept="audio/*"><div class="hint">Use music you have permission to upload.</div><button class="submit" type="submit">🚀 Send for Admin Approval</button><div id="status" class="status"></div></form></div></div><script>
-const $=id=>document.getElementById(id);let aiIntro='';
-$('photo').onchange=e=>{const f=e.target.files[0];if(f){$('preview').src=URL.createObjectURL(f);$('preview').style.display='block'}};
-$('aiBtn').onclick=()=>{const n=$('name').value.trim()||'This student',c=$('className').value.trim()||'PBIC',d=$('details').value.trim();aiIntro=`Meet ${n} — a proud ${c} Legend at PBIC. ${d?d+' ':''}Bringing friendship, energy and unforgettable memories to The Legends. ✨`; $('details').value=d; $('status').style.display='block';$('status').textContent='🤖 AI introduction created: '+aiIntro};
-$('form').onsubmit=async e=>{e.preventDefault();const st=$('status');st.style.display='block';st.textContent='Uploading securely…';try{const cfg=window.PBIC_SUPABASE;if(!cfg||cfg.url.startsWith('YOUR_'))throw Error('Connect Supabase in supabase-config.js first.');const sb=window.supabase.createClient(cfg.url,cfg.anonKey);const photo=$('photo').files[0],song=$('song').files[0];const id=crypto.randomUUID();const photoPath=id+'-'+photo.name.replace(/[^a-z0-9._-]/gi,'_');let {error}=await sb.storage.from('pbic-photos').upload(photoPath,photo,{upsert:false});if(error)throw error;const {data:pu}=sb.storage.from('pbic-photos').getPublicUrl(photoPath);let songUrl=null;if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');({error}=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false}));if(error)throw error;songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}({error}=await sb.from('submissions').insert({name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value.trim(),details:$('details').value.trim(),photo_url:pu.publicUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'}));if(error)throw error;st.textContent='✅ Submitted! Your profile is waiting for admin approval.';$('form').reset();$('preview').style.display='none'}catch(err){st.textContent='❌ '+err.message}};
+<script>
+const $=id=>document.getElementById(id);
+let aiIntro='';
+
+$('photo').onchange=e=>{
+  const f=e.target.files[0];
+  if(f){
+    $('preview').src=URL.createObjectURL(f);
+    $('preview').style.display='block';
+  }
+};
+
+$('aiBtn').onclick=()=>{
+  const n=$('name').value.trim()||'This student';
+  const c=$('className').value.trim()||'PBIC';
+  const d=$('details').value.trim();
+  aiIntro=`Meet ${n} — a proud ${c} Legend at PBIC. ${d?d+' ':''}Bringing friendship, energy and unforgettable memories to The Legends. ✨`;
+  $('status').style.display='block';
+  $('status').textContent='🤖 AI introduction created: '+aiIntro;
+};
+
+async function makeClient(){
+  const cfg=window.PBIC_SUPABASE;
+  if(!cfg || !cfg.url || cfg.url.startsWith('YOUR_')){
+    throw new Error('Connect Supabase in supabase-config.js first.');
+  }
+
+  const publishableKey=cfg.anonKey;
+
+  // sb_publishable_* keys are not JWTs. Keep the key in the apikey
+  // header and do not send it as Authorization: Bearer.
+  const safeFetch=async(input, init={})=>{
+    const headers=new Headers(init.headers || {});
+    if(headers.get('Authorization') === `Bearer ${publishableKey}`){
+      headers.delete('Authorization');
+    }
+    return fetch(input,{...init,headers});
+  };
+
+  return window.supabase.createClient(cfg.url,publishableKey,{
+    global:{fetch:safeFetch}
+  });
+}
+
+$('form').onsubmit=async e=>{
+  e.preventDefault();
+  const st=$('status');
+  st.style.display='block';
+  st.textContent='Uploading securely…';
+
+  try{
+    const sb=await makeClient();
+    const photo=$('photo').files[0];
+    const song=$('song').files[0];
+
+    if(!photo) throw new Error('Please choose a photo.');
+
+    const id=crypto.randomUUID();
+    const cleanName=f=>f.name.replace(/[^a-z0-9._-]/gi,'_');
+
+    const photoPath=id+'-'+cleanName(photo);
+    let {error}=await sb.storage
+      .from('pbic-photos')
+      .upload(photoPath,photo,{upsert:false,contentType:photo.type||undefined});
+
+    if(error) throw error;
+
+    const {data:pu}=sb.storage.from('pbic-photos').getPublicUrl(photoPath);
+    let songUrl=null;
+
+    if(song){
+      const songPath=id+'-'+cleanName(song);
+      ({error}=await sb.storage
+        .from('pbic-songs')
+        .upload(songPath,song,{upsert:false,contentType:song.type||undefined}));
+
+      if(error) throw error;
+      songUrl=sb.storage.from('pbic-songs').getPublicUrl(songPath).data.publicUrl;
+    }
+
+    ({error}=await sb.from('submissions').insert({
+      name:$('name').value.trim(),
+      instagram:$('instagram').value.trim(),
+      class_name:$('className').value.trim(),
+      details:$('details').value.trim(),
+      photo_url:pu.publicUrl,
+      song_url:songUrl,
+      ai_intro:aiIntro,
+      status:'pending'
+    }));
+
+    if(error) throw error;
+
+    st.textContent='✅ Submitted! Your profile is waiting for admin approval.';
+    $('form').reset();
+    $('preview').style.display='none';
+    aiIntro='';
+  }catch(err){
+    console.error('PBIC submission error:',err);
+    st.textContent='❌ '+(err?.message || String(err));
+  }
+};
+
 </script></body></html>
