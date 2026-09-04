@@ -105,6 +105,9 @@ textarea{min-height:110px;resize:vertical}
 .crop-frame{position:absolute;pointer-events:none;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.6)}
 .crop-frame.square{width:min(72vw,390px);height:min(72vw,390px);border-radius:14px}
 .crop-frame.rect{width:min(78vw,500px);height:min(60vw,340px);border-radius:12px}
+.crop-frame.portrait{width:min(72vw,390px);height:min(90vw,488px);max-height:72%;border-radius:14px}
+.crop-frame.landscape{width:min(82vw,520px);height:min(46vw,293px);border-radius:12px}
+
 .crop-tools{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:15px;flex-wrap:wrap}
 .aspect{display:flex;gap:7px}.aspect button{border:1px solid var(--line);background:#fff;padding:9px 12px;border-radius:10px;font-weight:700;cursor:pointer}.aspect button.active{background:#eeedff;color:#4d43bd;border-color:#d8d3ff}
 .zoom{display:flex;align-items:center;gap:9px;min-width:220px}.zoom input{padding:0;box-shadow:none;border:0}.crop-bottom{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}.crop-bottom button{padding:11px 16px;border-radius:11px;border:1px solid var(--line);font-weight:800;cursor:pointer}.use-crop{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -122,7 +125,18 @@ textarea{min-height:110px;resize:vertical}
  .crop-stage{height:55vh}
  .crop-frame.square{width:78vw;height:78vw}
  .crop-frame.rect{width:86vw;height:57vw}
+ .crop-frame.portrait{width:72vw;height:90vw;max-height:55vh}
+ .crop-frame.landscape{width:88vw;height:49.5vw}
+
 }
+
+/* Enhanced crop + real AI */
+.crop-tip{font-size:.82rem;color:var(--muted);margin-top:6px}
+.crop-actions{display:flex;gap:7px;flex-wrap:wrap}
+.crop-actions button{border:1px solid var(--line);background:#fff;padding:9px 12px;border-radius:10px;font-weight:750;cursor:pointer}
+.crop-actions button:hover{background:#f6f7fb}
+.ai-button.loading{opacity:.72;pointer-events:none}
+.ai-result{margin-top:12px;padding:13px 14px;border:1px solid #ddd8ff;background:#f7f6ff;border-radius:13px;color:#25244a;line-height:1.55;display:none}
 </style>
 </head>
 <body>
@@ -214,8 +228,8 @@ textarea{min-height:110px;resize:vertical}
   <div class="section-icon i-info"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
   <div><div class="section-title">About you <span style="color:var(--muted);font-weight:600">(optional)</span></div><div class="section-note">A short bio, plus a ready-made intro if you'd rather not write one.</div></div>
  </div>
- <div class="field"><label for="details">About you</label><textarea id="details" maxlength="500" placeholder="Hobbies, personality, favourite thing..."></textarea></div>
- <div class="ai-box"><div class="ai-copy"><strong>AI Introduction</strong><span>Generate a ready-to-use PBIC Legends intro.</span></div><button type="button" class="ai-button" id="aiBtn">✦ Generate AI Introduction</button></div>
+ <div class="field"><label for="details">About you</label><textarea id="details" maxlength="500" placeholder="Write a few things about yourself, or click AI Introduction and let AI write it for you..."></textarea><div class="helper">Write your own details, or use <b>AI Introduction</b> to automatically create and place a polished introduction here.</div></div>
+ <div class="ai-box"><div class="ai-copy"><strong>AI Introduction</strong><span>AI will write a polished PBIC Legends introduction in the About you box automatically.</span></div><button type="button" class="ai-button" id="aiBtn">✦ AI Introduction</button></div><div id="aiResult" class="ai-result"></div>
 </section>
 
 <div class="submit-wrap"><button class="submit" type="submit">Send for Admin Approval →</button><div id="status" class="status"></div></div>
@@ -229,7 +243,12 @@ textarea{min-height:110px;resize:vertical}
 <div class="crop-card">
 <div class="crop-top"><div><div class="crop-title">Adjust your photo</div><div class="helper">Drag to position • use zoom to fine-tune</div></div><button class="close" type="button" id="closeCrop">×</button></div>
 <div class="crop-body"><div class="crop-stage" id="cropStage"><img id="cropImg" class="crop-img" alt=""><div id="cropFrame" class="crop-frame square"></div></div>
-<div class="crop-tools"><div class="aspect"><button type="button" id="squareBtn" class="active">Square</button><button type="button" id="rectBtn">Rectangle</button></div><div class="zoom">− <input id="zoom" type="range" min="1" max="3" step=".01" value="1.2"> + <span id="zoomVal">1.20×</span></div></div></div>
+<div class="crop-tools">
+<div class="aspect"><button type="button" id="squareBtn" class="active">1:1 Square</button><button type="button" id="portraitBtn">4:5 Portrait</button><button type="button" id="landscapeBtn">16:9</button></div>
+<div class="zoom">− <input id="zoom" type="range" min="1" max="4" step=".01" value="1.2"> + <span id="zoomVal">1.20×</span></div>
+<div class="crop-actions"><button type="button" id="centerCrop">Center</button><button type="button" id="resetCrop">Reset</button></div>
+</div>
+<div class="crop-tip">Drag the image inside the frame. Use zoom for close-ups. The crop is exported as a sharp JPEG.</div></div>
 <div class="crop-bottom"><button type="button" id="cancelCrop">Cancel</button><button type="button" class="use-crop" id="useCrop">Use this crop</button></div>
 </div>
 </div>
@@ -242,24 +261,159 @@ const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg x
 $('avatar').src=placeholder;
 $('choosePhoto').onclick=()=>$('photo').click();
 $('avatarWrap').onclick=e=>{if(e.target.closest('#choosePhoto'))return;$('photo').click()};
-$('removePhoto').onclick=e=>{e.stopPropagation();croppedBlob=null;$('photo').value='';$('avatar').src=placeholder};
-$('photo').onchange=e=>{const f=e.target.files[0];if(!f)return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);$('cropImg').src=objectUrl;crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};$('zoom').value=1.2;$('zoomVal').textContent='1.20×';$('cropModal').style.display='flex';$('cropImg').onload=positionImage};
-function frameSize(){const s=$('cropStage');if(aspect==='square'){const w=Math.min(s.clientWidth*.72,390);return {w,h:w}}const w=Math.min(s.clientWidth*.78,500);const h=Math.min(s.clientHeight*.68,340);return {w,h}}
-function positionImage(){const img=$('cropImg'),f=frameSize();crop.base=Math.max(f.w/img.naturalWidth,f.h/img.naturalHeight);renderCrop()}
-function renderCrop(){const img=$('cropImg'),s=crop.base*crop.scale;img.style.width=img.naturalWidth*s+'px';img.style.height=img.naturalHeight*s+'px';img.style.transform=`translate(${crop.x}px,${crop.y}px)`}
-function setAspect(a){aspect=a;$('cropFrame').className='crop-frame '+a;$('squareBtn').classList.toggle('active',a==='square');$('rectBtn').classList.toggle('active',a==='rect');positionImage()}
-$('squareBtn').onclick=()=>setAspect('square');$('rectBtn').onclick=()=>setAspect('rect');
+$('removePhoto').onclick=e=>{e.stopPropagation();croppedBlob=null;$('photo').value='';$('avatar').src=placeholder;if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null}};
+
+function frameSize(){
+  const s=$('cropStage');
+  const maxW=Math.min(s.clientWidth*.82,520), maxH=Math.min(s.clientHeight*.72,390);
+  if(aspect==='square'){const w=Math.min(maxW,maxH);return {w,h:w}};
+  if(aspect==='portrait'){const w=Math.min(maxW,maxH*.8);return {w,h:w/0.8}};
+  const w=Math.min(maxW,maxH*16/9);return {w,h:w*9/16};
+}
+function clampCrop(){
+  const img=$('cropImg'),f=frameSize(),s=crop.base*crop.scale;
+  const iw=img.naturalWidth*s, ih=img.naturalHeight*s;
+  const maxX=Math.max(0,(iw-f.w)/2), maxY=Math.max(0,(ih-f.h)/2);
+  crop.x=Math.max(-maxX,Math.min(maxX,crop.x));
+  crop.y=Math.max(-maxY,Math.min(maxY,crop.y));
+}
+function positionImage(){
+  const img=$('cropImg'),f=frameSize();
+  crop.base=Math.max(f.w/img.naturalWidth,f.h/img.naturalHeight);
+  crop.x=0;crop.y=0;
+  renderCrop();
+}
+function renderCrop(){
+  const img=$('cropImg'),s=crop.base*crop.scale;
+  img.style.width=img.naturalWidth*s+'px';
+  img.style.height=img.naturalHeight*s+'px';
+  clampCrop();
+  img.style.transform=`translate(${crop.x}px,${crop.y}px)`;
+}
+function setAspect(a){
+  aspect=a;
+  $('cropFrame').className='crop-frame '+(a==='square'?'square':a==='portrait'?'portrait':'landscape');
+  $('squareBtn').classList.toggle('active',a==='square');
+  $('portraitBtn').classList.toggle('active',a==='portrait');
+  $('landscapeBtn').classList.toggle('active',a==='landscape');
+  positionImage();
+}
+$('squareBtn').onclick=()=>setAspect('square');
+$('portraitBtn').onclick=()=>setAspect('portrait');
+$('landscapeBtn').onclick=()=>setAspect('landscape');
+$('centerCrop').onclick=()=>{crop.x=0;crop.y=0;renderCrop()};
+$('resetCrop').onclick=()=>{crop.scale=1.2;crop.x=0;crop.y=0;$('zoom').value=1.2;$('zoomVal').textContent='1.20×';renderCrop()};
 $('zoom').oninput=e=>{crop.scale=+e.target.value;$('zoomVal').textContent=crop.scale.toFixed(2)+'×';renderCrop()};
-$('cropStage').addEventListener('pointerdown',e=>{crop.drag=true;crop.sx=e.clientX;crop.sy=e.clientY;crop.ox=crop.x;crop.oy=crop.y;$('cropImg').setPointerCapture?.(e.pointerId)});
-$('cropStage').addEventListener('pointermove',e=>{if(crop.drag){crop.x=crop.ox+e.clientX-crop.sx;crop.y=crop.oy+e.clientY-crop.sy;renderCrop()}});
-$('cropStage').addEventListener('pointerup',()=>crop.drag=false);$('cropStage').addEventListener('pointercancel',()=>crop.drag=false);
-function closeCrop(){$('cropModal').style.display='none';if(!croppedBlob){$('photo').value=''}}$('closeCrop').onclick=closeCrop;$('cancelCrop').onclick=closeCrop;
-$('useCrop').onclick=()=>{const img=$('cropImg'),stage=$('cropStage'),f=frameSize(),outW=1000,outH=Math.round(outW*f.h/f.w),canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;const ctx=canvas.getContext('2d'),s=crop.base*crop.scale,ir=img.getBoundingClientRect(),sr=stage.getBoundingClientRect(),ix=ir.left-sr.left,iy=ir.top-sr.top,fl=(stage.clientWidth-f.w)/2,ft=(stage.clientHeight-f.h)/2;ctx.drawImage(img,(fl-ix)/s,(ft-iy)/s,f.w/s,f.h/s,0,0,outW,outH);canvas.toBlob(b=>{croppedBlob=b;$('avatar').src=URL.createObjectURL(b);closeCrop()},'image/jpeg',.92)};
 
-$('aiBtn').onclick=()=>{const n=$('name').value.trim()||'This student',c=$('className').value||'PBIC',d=$('details').value.trim();aiIntro=`Meet ${n} — a proud ${c} Legend at PBIC. ${d?d+' ':''}Bringing friendship, energy and unforgettable memories to The Legends. ✨`;$('status').style.display='block';$('status').textContent='✦ '+aiIntro};
+$('photo').onchange=e=>{
+  const f=e.target.files[0]; if(!f)return;
+  if(!f.type.startsWith('image/')){e.target.value='';return}
+  if(objectUrl)URL.revokeObjectURL(objectUrl);
+  objectUrl=URL.createObjectURL(f);
+  $('cropImg').src=objectUrl;
+  crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};
+  aspect='square';
+  $('zoom').value=1.2;$('zoomVal').textContent='1.20×';
+  $('squareBtn').classList.add('active');$('portraitBtn').classList.remove('active');$('landscapeBtn').classList.remove('active');
+  $('cropFrame').className='crop-frame square';
+  $('cropModal').style.display='flex';
+  $('cropImg').onload=()=>positionImage();
+};
 
-async function makeClient(){const cfg=window.PBIC_SUPABASE;if(!cfg?.url||cfg.url.startsWith('YOUR_'))throw Error('Supabase configuration is missing.');const key=cfg.anonKey;if(!key||key.startsWith('YOUR_'))throw Error('Supabase publishable key is missing.');const safeFetch=async(input,init={})=>{const h=new Headers(init.headers||{});if(h.get('Authorization')===`Bearer ${key}`)h.delete('Authorization');return fetch(input,{...init,headers:h})};return window.supabase.createClient(cfg.url,key,{global:{fetch:safeFetch}})}
-$('form').addEventListener('submit',async e=>{e.preventDefault();e.stopPropagation();const st=$('status');st.style.display='block';try{if(!croppedBlob)throw Error('Please choose and crop your profile photo.');const sb=await makeClient(),id=crypto.randomUUID(),photoPath=id+'-profile.jpg';let r=await sb.storage.from('pbic-photos').upload(photoPath,croppedBlob,{upsert:false,contentType:'image/jpeg'});if(r.error)throw Error('Photo upload failed: '+r.error.message);const photoUrl=sb.storage.from('pbic-photos').getPublicUrl(photoPath).data.publicUrl;let songUrl=null;const song=$('song').files[0];if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');r=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false,contentType:song.type||undefined});if(r.error)throw Error('Song upload failed: '+r.error.message);songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';$('avatar').src=placeholder}catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}});
+$('cropStage').addEventListener('pointerdown',e=>{
+  if(e.target!==$('cropImg') && e.target!==$('cropStage'))return;
+  crop.drag=true;crop.sx=e.clientX;crop.sy=e.clientY;crop.ox=crop.x;crop.oy=crop.y;
+  $('cropStage').setPointerCapture?.(e.pointerId);
+  $('cropImg').style.cursor='grabbing';
+});
+$('cropStage').addEventListener('pointermove',e=>{
+  if(!crop.drag)return;
+  crop.x=crop.ox+e.clientX-crop.sx;crop.y=crop.oy+e.clientY-crop.sy;renderCrop();
+});
+function endDrag(){crop.drag=false;$('cropImg').style.cursor='grab'}
+$('cropStage').addEventListener('pointerup',endDrag);$('cropStage').addEventListener('pointercancel',endDrag);$('cropStage').addEventListener('pointerleave',()=>{if(crop.drag)endDrag()});
+
+function closeCrop(){
+  $('cropModal').style.display='none';
+  if(!croppedBlob)$('photo').value='';
+}
+$('closeCrop').onclick=closeCrop;$('cancelCrop').onclick=closeCrop;
+$('cropModal').addEventListener('click',e=>{if(e.target===$('cropModal'))closeCrop()});
+$('cropImg').ondragstart=e=>e.preventDefault();
+
+$('useCrop').onclick=()=>{
+  const img=$('cropImg'),stage=$('cropStage'),f=frameSize();
+  const outW=1200,outH=Math.max(1,Math.round(outW*f.h/f.w));
+  const canvas=document.createElement('canvas');canvas.width=outW;canvas.height=outH;
+  const ctx=canvas.getContext('2d');
+  const s=crop.base*crop.scale;
+  const ix=stage.clientWidth/2+crop.x-(img.naturalWidth*s)/2;
+  const iy=stage.clientHeight/2+crop.y-(img.naturalHeight*s)/2;
+  const fl=(stage.clientWidth-f.w)/2,ft=(stage.clientHeight-f.h)/2;
+  const sx=(fl-ix)/s,sy=(ft-iy)/s,sw=f.w/s,sh=f.h/s;
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(img,sx,sy,sw,sh,0,0,outW,outH);
+  canvas.toBlob(b=>{
+    if(!b)return;
+    croppedBlob=b;
+    $('avatar').src=URL.createObjectURL(b);
+    closeCrop();
+  },'image/jpeg',.94);
+};
+
+async function generateRealAI(){
+  const n=$('name').value.trim();
+  const c=$('className').value;
+  const d=$('details').value.trim();
+  const song=$('songName').value.trim();
+  const st=$('status'),box=$('aiResult'),btn=$('aiBtn');
+  if(!n||!c){st.style.display='block';st.textContent='Please enter your name and class first.';return}
+  btn.classList.add('loading');btn.textContent='✦ Writing your introduction…';box.style.display='none';
+  try{
+    const cfg=window.PBIC_SUPABASE;
+    if(!cfg?.url||cfg.url.startsWith('YOUR_'))throw Error('Supabase configuration is missing.');
+    if(!cfg.anonKey||cfg.anonKey.startsWith('YOUR_'))throw Error('Supabase publishable key is missing.');
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);
+    const res=await fetch(cfg.url.replace(/\/$/, '')+'/functions/v1/generate-intro',{
+      method:'POST',headers:{'apikey':cfg.anonKey,'Content-Type':'application/json'},
+      body:JSON.stringify({name:n,class_name:c,details:d,song_name:song}),signal:controller.signal
+    });
+    clearTimeout(timer);
+    let data=null;try{data=await res.json()}catch{}
+    if(!res.ok)throw Error(data?.error||`AI request failed (${res.status})`);
+    if(!data?.intro)throw Error('AI returned no introduction.');
+    aiIntro=data.intro.trim();
+    $('details').value=aiIntro;
+    box.textContent=aiIntro;box.style.display='block';
+    st.style.display='block';st.textContent='✓ Real AI introduction created. You can generate again if you want another version.';
+  }catch(err){
+    console.error(err);st.style.display='block';st.textContent='× '+(err?.name==='AbortError'?'AI request timed out. Please try again.':(err?.message||String(err)));box.style.display='none';
+  }finally{btn.classList.remove('loading');btn.textContent='✦ AI Introduction'}
+}
+$('aiBtn').onclick=generateRealAI;
+
+async function makeClient(){
+  const cfg=window.PBIC_SUPABASE;if(!cfg?.url||cfg.url.startsWith('YOUR_'))throw Error('Supabase configuration is missing.');
+  const key=cfg.anonKey;if(!key||key.startsWith('YOUR_'))throw Error('Supabase publishable key is missing.');
+  const safeFetch=async(input,init={})=>{const h=new Headers(init.headers||{});if(h.get('Authorization')===`Bearer ${key}`)h.delete('Authorization');return fetch(input,{...init,headers:h})};
+  return window.supabase.createClient(cfg.url,key,{global:{fetch:safeFetch}})
+}
+
+$('form').addEventListener('submit',async e=>{
+  e.preventDefault();e.stopPropagation();const st=$('status');st.style.display='block';
+  try{
+    if(!croppedBlob)throw Error('Please choose and crop your profile photo.');
+    const sb=await makeClient(),id=crypto.randomUUID(),photoPath=id+'-profile.jpg';
+    let r=await sb.storage.from('pbic-photos').upload(photoPath,croppedBlob,{upsert:false,contentType:'image/jpeg'});
+    if(r.error)throw Error('Photo upload failed: '+r.error.message);
+    const photoUrl=sb.storage.from('pbic-photos').getPublicUrl(photoPath).data.publicUrl;
+    let songUrl=null;const song=$('song').files[0];
+    if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');r=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false,contentType:song.type||undefined});if(r.error)throw Error('Song upload failed: '+r.error.message);songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}
+    const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};
+    r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);
+    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';$('avatar').src=placeholder;$('aiResult').style.display='none';
+  }catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}
+});
 </script>
 </body>
 </html>
