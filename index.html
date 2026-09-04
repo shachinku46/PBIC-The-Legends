@@ -296,7 +296,7 @@
       const cfg=window.PBIC_SUPABASE||{};
       if(!cfg.url || cfg.url.startsWith('YOUR_')) return;
       const client=window.supabase.createClient(cfg.url,cfg.anonKey);
-      const {data,error}=await client.from('profiles').select('*').order('created_at',{ascending:false});
+      const {data,error}=await client.from('profiles').select('*').order('name',{ascending:true});
       if(error || !data) return;
       const wrap=document.getElementById('approvedProfiles');
       data.forEach((p,idx)=>{
