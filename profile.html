@@ -231,91 +231,70 @@
     }
   }
 
-  let ytPendingPlay=false;
+  let ytPlaying=false;
+  let ytStarted=false;
 
-  function createYouTubePlayer(){
-    if(!isYouTube || ytPlayer || !window.YT?.Player)return;
-    ytPlayer=new YT.Player("ytProfileFrame",{
-      width:"200",
-      height:"200",
-      videoId:youtubeId,
-      playerVars:{
-        autoplay:0,
-        controls:0,
-        playsinline:1,
-        rel:0,
-        modestbranding:1,
-        enablejsapi:1,
-        origin:window.location.origin
-      },
-      events:{
-        onReady:function(){
-          ytReady=true;
-          if(ytPendingPlay){
-            ytPendingPlay=false;
-            try{ ytPlayer.unMute(); ytPlayer.playVideo(); }catch(e){ console.error(e); }
-          }
-        },
-        onStateChange:function(event){
-          if(event.data===YT.PlayerState.PLAYING){
-            ytPlaying=true; setState(true,false);
-          }else if(event.data===YT.PlayerState.PAUSED || event.data===YT.PlayerState.ENDED){
-            ytPlaying=false; setState(false,false);
-          }else if(event.data===YT.PlayerState.BUFFERING){
-            musicLabel.textContent="Loading…";
-          }
-        },
-        onError:function(event){
-          console.error("YouTube player error:",event.data);
-          ytPlaying=false;
-          setState(false,false);
-          musicLabel.textContent="Song unavailable";
-        }
-      }
-    });
-  }
-
-  function loadYouTubeApi(){
+  // Use a direct iframe URL from the user's Play-track click.
+  // This keeps the click as the browser's user gesture, which is important
+  // for audio playback. The video itself stays off-screen.
+  function startYouTubeFromClick(){
     if(!isYouTube)return;
-    if(window.YT?.Player){
-      createYouTubePlayer();
-      return;
-    }
-    if(ytApiLoading)return;
-    ytApiLoading=true;
-    const tag=document.createElement("script");
-    tag.src="https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
+
+    const src =
+      "https://www.youtube-nocookie.com/embed/" +
+      encodeURIComponent(youtubeId) +
+      "?autoplay=1&controls=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1";
+
+    ytFrame.src=src;
+    ytStarted=true;
+    ytPlaying=true;
+    setState(true,false);
+    musicLabel.textContent="Playing";
   }
 
-  window.onYouTubeIframeAPIReady=function(){
-    if(isYouTube)createYouTubePlayer();
-  };
+  function pauseYouTube(){
+    if(!ytFrame.contentWindow)return;
+    ytFrame.contentWindow.postMessage(
+      JSON.stringify({
+        event:"command",
+        func:"pauseVideo",
+        args:[]
+      }),
+      "https://www.youtube-nocookie.com"
+    );
+    ytPlaying=false;
+    setState(false,false);
+  }
 
   function playYouTube(){
-    if(!ytPlayer || !ytReady){
-      ytPendingPlay=true;
-      loadYouTubeApi();
+    if(!ytStarted){
+      startYouTubeFromClick();
       return;
     }
-    try{
-      ytPlayer.unMute();
-      ytPlayer.playVideo();
-    }catch(e){
-      console.error("YouTube playback error:",e);
-    }
-  }
 
-  // Pre-load the official YouTube player while the page is opening.
-  // This makes the later Play track click a direct user-initiated play call.
-  if(isYouTube)loadYouTubeApi();
+    if(!ytFrame.contentWindow){
+      startYouTubeFromClick();
+      return;
+    }
+
+    ytFrame.contentWindow.postMessage(
+      JSON.stringify({
+        event:"command",
+        func:"playVideo",
+        args:[]
+      }),
+      "https://www.youtube-nocookie.com"
+    );
+    ytPlaying=true;
+    setState(true,false);
+  }
 
   function handleMusic() {
     if (isYouTube) {
       if (!ytPlaying) {
         playYouTube();
-      } else if (ytPlayer) {
-        ytPlayer.pauseVideo();
+      } else {
+        pauseYouTube();
       }
       return;
     }
