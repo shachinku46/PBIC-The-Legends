@@ -107,8 +107,8 @@
     .info-item{justify-content:flex-start;}
   }
 
-  .yt-profile-player{position:fixed;left:-100px;top:-100px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1}
-  .yt-profile-player iframe{display:block;width:1px;height:1px;border:0}
+  .yt-profile-player{position:fixed;left:-1000px;top:-1000px;width:200px;height:200px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1}
+  .yt-profile-player iframe{display:block;width:200px;height:200px;border:0}
 </style>
 </head>
 <body>
@@ -236,8 +236,8 @@
   function createYouTubePlayer(){
     if(!isYouTube || ytPlayer || !window.YT?.Player)return;
     ytPlayer=new YT.Player("ytProfileFrame",{
-      width:"1",
-      height:"1",
+      width:"200",
+      height:"200",
       videoId:youtubeId,
       playerVars:{
         autoplay:0,
