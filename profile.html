@@ -106,6 +106,12 @@
     .info-box{display:inline-block; text-align:left;}
     .info-item{justify-content:flex-start;}
   }
+
+  .yt-profile-player{position:fixed;right:22px;bottom:22px;width:min(420px,calc(100vw - 44px));background:#0a0e27;border:1px solid rgba(255,255,255,.16);border-radius:18px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35);z-index:50;display:none}
+  .yt-profile-player .yt-head{padding:10px 12px;color:#fff;font-weight:700;font-size:.85rem;display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .yt-profile-player button{border:0;background:rgba(255,255,255,.12);color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer}
+  .yt-profile-player iframe{display:block;width:100%;height:236px;border:0}
+  @media(max-width:600px){.yt-profile-player{right:12px;bottom:12px;width:calc(100vw - 24px)}.yt-profile-player iframe{height:205px}}
 </style>
 </head>
 <body>
@@ -122,6 +128,7 @@
   <span id="musicLabel">Play track</span>
 </div>
 <audio id="bgMusic" loop></audio>
+<div class="yt-profile-player" id="ytProfilePlayer"><div class="yt-head"><span id="ytProfileTitle">YouTube song</span><button type="button" id="ytClose">×</button></div><iframe id="ytProfileFrame" title="YouTube song" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
 
 <section class="hero">
   <div class="hero-content">
@@ -185,12 +192,29 @@
   const musicLabel = document.getElementById("musicLabel");
   let isPlaying = false;
 
-  if (music) {
+  const ytPlayerBox = document.getElementById("ytProfilePlayer");
+  const ytFrame = document.getElementById("ytProfileFrame");
+  const ytTitle = document.getElementById("ytProfileTitle");
+  const ytClose = document.getElementById("ytClose");
+  const isYouTube = /^youtube:[A-Za-z0-9_-]+$/.test(music || "");
+  const youtubeId = isYouTube ? music.slice(8) : "";
+
+  if (isYouTube) {
+    ytTitle.textContent = "YouTube soundtrack";
+    ytFrame.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(youtubeId) + "?autoplay=1&playsinline=1&rel=0";
+    musicBtn.style.display = "flex";
+    musicLabel.textContent = "Open song";
+  } else if (music) {
     audio.preload = "none";
     audio.src = music;
   } else {
     musicBtn.style.display = "none";
   }
+
+  ytClose.addEventListener("click", () => {
+    ytFrame.src = "";
+    ytPlayerBox.style.display = "none";
+  });
 
   function setState(playing, muted) {
     if (playing && !muted) {
@@ -215,6 +239,10 @@
   }
 
   function handleMusic() {
+    if (isYouTube) {
+      ytPlayerBox.style.display = ytPlayerBox.style.display === "block" ? "none" : "block";
+      return;
+    }
     if (!isPlaying) {
       audio.play();
       isPlaying = true;
