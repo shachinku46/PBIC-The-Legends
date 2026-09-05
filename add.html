@@ -154,6 +154,14 @@ textarea{min-height:110px;resize:vertical}
 
     .yt-attached{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#eefbf5;border:1px solid #bfe8d2;color:#16794a;font-weight:700;font-size:13px}
     
+
+    .yt-actions{display:flex;gap:8px;align-items:center;margin-left:auto}
+    .yt-preview,.yt-use,.yt-attach{border:1px solid #e1e5ef;background:#fff;border-radius:11px;padding:9px 13px;font-weight:800;cursor:pointer;white-space:nowrap}
+    .yt-preview:hover,.yt-use:hover,.yt-attach:hover{transform:translateY(-1px)}
+    .yt-attach{display:none;background:#0a0e27;color:#fff;border-color:#0a0e27}
+    .yt-attached{display:none;margin-top:10px;padding:11px 13px;border-radius:12px;background:#eefbf5;border:1px solid #bfe8d2;color:#16794a;font-weight:800}
+    @media(max-width:700px){.yt-actions{width:100%;margin-left:0}.yt-result{flex-wrap:wrap}.yt-preview,.yt-use{flex:1}}
+
 </style>
 </head>
 <body>
@@ -251,7 +259,7 @@ textarea{min-height:110px;resize:vertical}
       <iframe id="ytPlayer" title="YouTube song preview" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
     </div>
   </div>
-  <div id="selectedMusic" class="helper">You can upload your own audio, or search YouTube and choose a result. YouTube songs play through the official embedded player.</div>
+  <div id="selectedMusic" class="helper">Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.</div>
  </div>
 </section>
 
@@ -412,22 +420,35 @@ async function searchYouTube(){
     results.innerHTML='';
     data.items.forEach(item=>{
       const row=document.createElement('div');row.className='yt-result';
-      row.innerHTML=`<img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><button type="button" class="yt-use">▶ Choose</button>`;
-      row.addEventListener('click',()=>selectYouTubeSong(item));
+      row.innerHTML=`<img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><div class="yt-actions"><button type="button" class="yt-preview">▶ Preview</button><button type="button" class="yt-use">✓ Choose</button></div>`;
+      row.querySelector('.yt-preview').addEventListener('click',e=>{e.stopPropagation();previewYouTubeSong(item)});
       row.querySelector('.yt-use').addEventListener('click',e=>{e.stopPropagation();selectYouTubeSong(item)});
       results.appendChild(row);
     });
   }catch(err){console.error(err);results.innerHTML='<div class="helper" style="color:#b42318">× '+(err?.message||String(err))+'</div>'}
   finally{btn.disabled=false;btn.textContent='🔎 Search'}
 }
+function previewYouTubeSong(item){
+  selectedYoutubeId='';
+  selectedYoutubeTitle='';
+  uploadedSongUrl='';
+  uploadedSongPath='';
+  $('song').value='';
+  $('songName').value=item.title||'YouTube song';
+  $('ytSelected').textContent='▶ Previewing: '+(item.title||'YouTube song');
+  $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
+  $('ytPlayerWrap').style.display='block';
+  $('selectedMusic').textContent='Preview only — click ✓ Choose to attach this YouTube song to the profile.';
+}
 function selectYouTubeSong(item){
   selectedYoutubeId=item.videoId;selectedYoutubeTitle=item.title||'YouTube song';
   $('songName').value=selectedYoutubeTitle;
   $('song').value='';
-  $('ytSelected').textContent='▶ '+selectedYoutubeTitle;
+  $('ytSelected').textContent='✓ Chosen: '+selectedYoutubeTitle;
   $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
   $('ytPlayerWrap').style.display='block';
-  $('selectedMusic').textContent='✓ YouTube song selected. Click another result to change it.';
+  $('selectedMusic').textContent='✓ YouTube song chosen and attached to this profile. It will be saved as a YouTube link when you submit.';
+
 }
 $('ytSearchBtn').onclick=searchYouTube;
 $('ytQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchYouTube()}});
@@ -544,7 +565,7 @@ $('form').addEventListener('submit',async e=>{
     }
     const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};
     r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);
-    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').textContent='You can upload your own MP3, or search YouTube and choose a result.';
+    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').textContent='Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.';
   }catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}
 });
 </script>
