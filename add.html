@@ -163,6 +163,31 @@ textarea{min-height:110px;resize:vertical}
     .yt-attached{display:none;margin-top:10px;padding:11px 13px;border-radius:12px;background:#eefbf5;border:1px solid #bfe8d2;color:#16794a;font-weight:800}
     @media(max-width:700px){.yt-actions{width:100%;margin-left:0}.yt-result{flex-wrap:wrap}.yt-preview,.yt-use{flex:1}}
 
+/* ---------- Preview / Choose states (pro polish) ---------- */
+.yt-result{position:relative;transition:border-color .2s,background .2s,box-shadow .2s,transform .15s}
+.yt-result.previewing{border-color:#22d3ee;background:#f2fdff;box-shadow:0 0 0 3px rgba(34,211,238,.14)}
+.yt-result.chosen{border-color:#6d5bf5;background:#faf9ff;box-shadow:0 0 0 3px rgba(109,91,245,.16)}
+.yt-result.chosen .yt-title{color:#4d3fc7}
+.preview-tag,.chosen-tag{position:absolute;top:-9px;left:14px;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 10px;border-radius:999px;display:none;box-shadow:0 3px 8px rgba(10,14,39,.18)}
+.preview-tag{background:#22d3ee;color:#04222a}
+.chosen-tag{background:linear-gradient(100deg,var(--violet),#5d7df5);color:#fff}
+.yt-result.previewing .preview-tag{display:inline-block}
+.yt-result.chosen .chosen-tag{display:inline-block}
+.yt-preview,.yt-use{display:inline-flex;align-items:center;gap:6px;transition:.18s}
+.yt-preview svg,.yt-use svg{width:14px;height:14px;flex-shrink:0}
+.yt-preview.is-playing{background:var(--ink);color:#fff;border-color:var(--ink)}
+.yt-use.chosen{background:linear-gradient(100deg,var(--violet),#5d7df5);color:#fff;border-color:transparent}
+.yt-use:disabled{opacity:.55;cursor:default}
+
+.chosen-chip{display:flex;align-items:center;gap:12px;margin-top:12px;padding:10px 12px;border-radius:14px;background:linear-gradient(135deg,#f4f2ff,#eefaff);border:1px solid #ded9ff;animation:chipIn .22s ease}
+@keyframes chipIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.chosen-chip img{width:52px;height:52px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#eee}
+.chosen-chip-meta{min-width:0;flex:1}
+.chosen-chip-label{font-size:.7rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#4d43bd}
+.chosen-chip-title{font-weight:700;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chosen-chip-clear{border:0;background:#fff;color:#5b6478;width:30px;height:30px;border-radius:50%;cursor:pointer;flex-shrink:0;font-size:.95rem;box-shadow:0 2px 6px rgba(10,14,39,.1);transition:.18s}
+.chosen-chip-clear:hover{background:#fbeef0;color:#c1425a;transform:scale(1.06)}
+
 </style>
 </head>
 <body>
@@ -259,6 +284,14 @@ textarea{min-height:110px;resize:vertical}
       <iframe id="ytPlayer" title="YouTube song preview" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
     </div>
   </div>
+  <div id="chosenChip" class="chosen-chip" style="display:none">
+   <img id="chosenThumb" src="" alt="">
+   <div class="chosen-chip-meta">
+    <div class="chosen-chip-label">✓ Attached to your profile</div>
+    <div id="chosenChipTitle" class="chosen-chip-title"></div>
+   </div>
+   <button type="button" class="chosen-chip-clear" id="chosenChipClear" aria-label="Remove chosen song" title="Remove chosen song">✕</button>
+  </div>
   <div id="selectedMusic" class="helper">Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.</div>
  </div>
 </section>
@@ -298,6 +331,11 @@ const $=id=>document.getElementById(id);
 let aiIntro='',croppedBlob=null,objectUrl=null,aspect='square';
 let crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};
 let selectedYoutubeId='',selectedYoutubeTitle='',uploadedSongUrl='',uploadedSongPath='';
+let currentPreviewId='';
+const ICON_PLAY='<svg class="icon" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"/></svg>';
+const ICON_PAUSE='<svg class="icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" fill="currentColor" stroke="none"/></svg>';
+const ICON_CHECK='<svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+const DEFAULT_MUSIC_HELPER='Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.';
 const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><rect width="100%" height="100%" fill="#eef0f7"/><text x="50%" y="51%" fill="#8992a6" font-family="Arial" font-size="26" text-anchor="middle">ADD PHOTO</text></svg>');
 $('avatar').src=placeholder;
 $('choosePhoto').onclick=()=>$('photo').click();
@@ -420,44 +458,97 @@ async function searchYouTube(){
     results.innerHTML='';
     data.items.forEach(item=>{
       const row=document.createElement('div');row.className='yt-result';row.dataset.videoId=item.videoId;
-      row.innerHTML=`<img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><div class="yt-actions"><button type="button" class="yt-preview">▶ Preview</button><button type="button" class="yt-use">✓ Choose</button></div>`;
-      row.querySelector('.yt-preview').addEventListener('click',e=>{e.stopPropagation();previewYouTubeSong(item)});
-      row.querySelector('.yt-use').addEventListener('click',e=>{e.stopPropagation();selectYouTubeSong(item)});
+      if(item.videoId===selectedYoutubeId)row.classList.add('chosen');
+      row.innerHTML=`<span class="preview-tag">Previewing</span><span class="chosen-tag">Chosen</span><img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><div class="yt-actions"><button type="button" class="yt-preview">${ICON_PLAY} Preview</button><button type="button" class="yt-use${item.videoId===selectedYoutubeId?' chosen':''}">${item.videoId===selectedYoutubeId?ICON_CHECK+' Chosen':ICON_CHECK+' Choose'}</button></div>`;
+      row.querySelector('.yt-preview').addEventListener('click',e=>{e.stopPropagation();previewYouTubeSong(item,row)});
+      row.querySelector('.yt-use').addEventListener('click',e=>{e.stopPropagation();selectYouTubeSong(item,row)});
       results.appendChild(row);
     });
   }catch(err){console.error(err);results.innerHTML='<div class="helper" style="color:#b42318">× '+(err?.message||String(err))+'</div>'}
   finally{btn.disabled=false;btn.textContent='🔎 Search'}
 }
-function previewYouTubeSong(item){
+function stopPreviewPlayback(){
+  currentPreviewId='';
+  $('ytPlayer').src='';
+  $('ytPlayerWrap').style.display='none';
+  document.querySelectorAll('.yt-result.previewing').forEach(r=>{
+    r.classList.remove('previewing');
+    const b=r.querySelector('.yt-preview');
+    if(b){b.innerHTML=ICON_PLAY+' Preview';b.classList.remove('is-playing')}
+  });
+}
+
+function previewYouTubeSong(item,row){
+  const btn=row.querySelector('.yt-preview');
+
+  // Clicking the currently-playing preview again pauses it.
+  if(currentPreviewId===item.videoId){
+    stopPreviewPlayback();
+    $('selectedMusic').textContent=selectedYoutubeId
+      ? '✓ YouTube song chosen. It will be attached to this profile when you submit.'
+      : DEFAULT_MUSIC_HELPER;
+    return;
+  }
+
+  // Only one preview plays at a time — reset any other row first.
+  stopPreviewPlayback();
+  currentPreviewId=item.videoId;
+  row.classList.add('previewing');
+  btn.innerHTML=ICON_PAUSE+' Pause';
+  btn.classList.add('is-playing');
+
   $('ytSelected').textContent='▶ Previewing: '+(item.title||'YouTube song');
   $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
   $('ytPlayerWrap').style.display='block';
   $('selectedMusic').textContent='Preview only — click ✓ Choose to attach this YouTube song to the profile.';
 }
-function selectYouTubeSong(item){
+
+function normalizeChooseButtons(){
+  document.querySelectorAll('.yt-result').forEach(r=>{
+    r.classList.remove('chosen');
+    const b=r.querySelector('.yt-use');
+    if(b){b.innerHTML=ICON_CHECK+' Choose';b.classList.remove('chosen')}
+  });
+}
+
+function showChosenChip(item){
+  $('chosenThumb').src=item.thumbnail||'';
+  $('chosenChipTitle').textContent=item.title||'YouTube song';
+  $('chosenChip').style.display='flex';
+  $('selectedMusic').style.display='none';
+}
+
+function clearChosenSong(){
+  selectedYoutubeId='';selectedYoutubeTitle='';
+  $('chosenChip').style.display='none';
+  $('selectedMusic').style.display='block';
+  $('selectedMusic').textContent=DEFAULT_MUSIC_HELPER;
+  normalizeChooseButtons();
+}
+$('chosenChipClear').onclick=clearChosenSong;
+
+function selectYouTubeSong(item,row){
   selectedYoutubeId=item.videoId;
   selectedYoutubeTitle=item.title||'YouTube song';
   uploadedSongUrl='';
   uploadedSongPath='';
   $('song').value='';
+  $('songUploadStatus').textContent='Choose an MP3 you have permission to use, or search YouTube and click Choose. The selected YouTube song is saved to this profile and played through YouTube.';
+  $('songUploadStatus').style.color='';
 
-  // Choose does NOT play the song.
-  $('ytPlayer').src='';
-  $('ytPlayerWrap').style.display='none';
+  // Choose never plays audio — it only marks a song as attached.
+  // Any preview currently playing is stopped.
+  stopPreviewPlayback();
   $('ytSelected').textContent='✓ Chosen: '+selectedYoutubeTitle;
-  $('selectedMusic').textContent='✓ YouTube song chosen. It will be attached to this profile when you submit.';
 
-  // Normalize buttons: only the selected result says Chosen.
-  document.querySelectorAll('.yt-use').forEach(btn=>{
-    btn.textContent='✓ Choose';
-    btn.classList.remove('chosen');
-  });
-  const row=[...document.querySelectorAll('.yt-result')].find(r=>r.dataset.videoId===item.videoId);
-  const chosenBtn=row?.querySelector('.yt-use');
-  if(chosenBtn){
-    chosenBtn.textContent='✓ Chosen';
-    chosenBtn.classList.add('chosen');
-  }
+  // Normalize: only this row is Chosen, every other result goes back to Choose.
+  normalizeChooseButtons();
+  row.classList.add('chosen');
+  const chosenBtn=row.querySelector('.yt-use');
+  chosenBtn.innerHTML=ICON_CHECK+' Chosen';
+  chosenBtn.classList.add('chosen');
+
+  showChosenChip(item);
 }
 $('ytSearchBtn').onclick=searchYouTube;
 $('ytQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchYouTube()}});
@@ -470,8 +561,10 @@ $('song').addEventListener('change',async ()=>{
   selectedYoutubeTitle='';
   uploadedSongUrl='';
   uploadedSongPath='';
-  $('ytPlayer').src='';
-  $('ytPlayerWrap').style.display='none';
+  stopPreviewPlayback();
+  normalizeChooseButtons();
+  $('chosenChip').style.display='none';
+  $('selectedMusic').style.display='block';
 
   if(file.type!=='audio/mpeg' && !/\.mp3$/i.test(file.name)){
     $('song').value='';
@@ -572,7 +665,7 @@ $('form').addEventListener('submit',async e=>{
     }
     const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};
     r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);
-    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').textContent='Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.';
+    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';currentPreviewId='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('chosenChip').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').style.display='block';$('selectedMusic').textContent=DEFAULT_MUSIC_HELPER;
   }catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}
 });
 </script>
