@@ -158,6 +158,7 @@ textarea{min-height:110px;resize:vertical}
     .yt-actions{display:flex;gap:8px;align-items:center;margin-left:auto}
     .yt-preview,.yt-use,.yt-attach{border:1px solid #e1e5ef;background:#fff;border-radius:11px;padding:9px 13px;font-weight:800;cursor:pointer;white-space:nowrap}
     .yt-preview:hover,.yt-use:hover,.yt-attach:hover{transform:translateY(-1px)}
+    .yt-use.chosen{background:#0a0e27;color:#fff;border-color:#0a0e27}
     .yt-attach{display:none;background:#0a0e27;color:#fff;border-color:#0a0e27}
     .yt-attached{display:none;margin-top:10px;padding:11px 13px;border-radius:12px;background:#eefbf5;border:1px solid #bfe8d2;color:#16794a;font-weight:800}
     @media(max-width:700px){.yt-actions{width:100%;margin-left:0}.yt-result{flex-wrap:wrap}.yt-preview,.yt-use{flex:1}}
@@ -237,11 +238,10 @@ textarea{min-height:110px;resize:vertical}
 <section class="section">
  <div class="section-head">
   <div class="section-icon i-music"><svg class="icon" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
-  <div><div class="section-title">Music</div><div class="section-note">Add a song name, upload audio, or both.</div></div>
+  <div><div class="section-title">Music</div><div class="section-note">Search YouTube and choose a song, or upload your own MP3.</div></div>
  </div>
  <div class="music">
   <div class="music-grid">
-   <div class="field"><label for="songName">Song name</label><input id="songName" maxlength="120" placeholder="Search or enter a song name"></div>
    <div class="field">
     <label for="song">Upload your MP3</label>
     <input id="song" type="file" accept=".mp3,audio/mpeg,audio/mp3">
@@ -419,7 +419,7 @@ async function searchYouTube(){
     if(!Array.isArray(data?.items)||!data.items.length){results.innerHTML='<div class="helper">No songs found. Try another search.</div>';return}
     results.innerHTML='';
     data.items.forEach(item=>{
-      const row=document.createElement('div');row.className='yt-result';
+      const row=document.createElement('div');row.className='yt-result';row.dataset.videoId=item.videoId;
       row.innerHTML=`<img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><div class="yt-actions"><button type="button" class="yt-preview">▶ Preview</button><button type="button" class="yt-use">✓ Choose</button></div>`;
       row.querySelector('.yt-preview').addEventListener('click',e=>{e.stopPropagation();previewYouTubeSong(item)});
       row.querySelector('.yt-use').addEventListener('click',e=>{e.stopPropagation();selectYouTubeSong(item)});
@@ -429,26 +429,35 @@ async function searchYouTube(){
   finally{btn.disabled=false;btn.textContent='🔎 Search'}
 }
 function previewYouTubeSong(item){
-  selectedYoutubeId='';
-  selectedYoutubeTitle='';
-  uploadedSongUrl='';
-  uploadedSongPath='';
-  $('song').value='';
-  $('songName').value=item.title||'YouTube song';
   $('ytSelected').textContent='▶ Previewing: '+(item.title||'YouTube song');
   $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
   $('ytPlayerWrap').style.display='block';
   $('selectedMusic').textContent='Preview only — click ✓ Choose to attach this YouTube song to the profile.';
 }
 function selectYouTubeSong(item){
-  selectedYoutubeId=item.videoId;selectedYoutubeTitle=item.title||'YouTube song';
-  $('songName').value=selectedYoutubeTitle;
+  selectedYoutubeId=item.videoId;
+  selectedYoutubeTitle=item.title||'YouTube song';
+  uploadedSongUrl='';
+  uploadedSongPath='';
   $('song').value='';
-  $('ytSelected').textContent='✓ Chosen: '+selectedYoutubeTitle;
-  $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
-  $('ytPlayerWrap').style.display='block';
-  $('selectedMusic').textContent='✓ YouTube song chosen and attached to this profile. It will be saved as a YouTube link when you submit.';
 
+  // Choose does NOT play the song.
+  $('ytPlayer').src='';
+  $('ytPlayerWrap').style.display='none';
+  $('ytSelected').textContent='✓ Chosen: '+selectedYoutubeTitle;
+  $('selectedMusic').textContent='✓ YouTube song chosen. It will be attached to this profile when you submit.';
+
+  // Normalize buttons: only the selected result says Chosen.
+  document.querySelectorAll('.yt-use').forEach(btn=>{
+    btn.textContent='✓ Choose';
+    btn.classList.remove('chosen');
+  });
+  const row=[...document.querySelectorAll('.yt-result')].find(r=>r.dataset.videoId===item.videoId);
+  const chosenBtn=row?.querySelector('.yt-use');
+  if(chosenBtn){
+    chosenBtn.textContent='✓ Chosen';
+    chosenBtn.classList.add('chosen');
+  }
 }
 $('ytSearchBtn').onclick=searchYouTube;
 $('ytQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchYouTube()}});
@@ -495,7 +504,6 @@ $('song').addEventListener('change',async ()=>{
 
     uploadedSongPath=path;
     uploadedSongUrl=sb.storage.from('pbic-songs').getPublicUrl(path).data.publicUrl;
-    $('songName').value=$('songName').value.trim() || file.name.replace(/\.mp3$/i,'');
     uploadStatus.textContent='✓ MP3 uploaded and ready to attach to your profile.';
     uploadStatus.style.color='#16794a';
     $('selectedMusic').textContent='✓ Your MP3 is uploaded and will be attached to this profile.';
@@ -513,7 +521,6 @@ async function generateRealAI(){
   const n=$('name').value.trim();
   const c=$('className').value;
   const d=$('details').value.trim();
-  const song=$('songName').value.trim();
   const st=$('status'),box=$('aiResult'),btn=$('aiBtn');
   if(!n||!c){st.style.display='block';st.textContent='Please enter your name and class first.';return}
   btn.classList.add('loading');btn.textContent='✦ Writing your introduction…';box.style.display='none';
@@ -524,7 +531,7 @@ async function generateRealAI(){
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),25000);
     const res=await fetch(cfg.url.replace(/\/$/, '')+'/functions/v1/generate-intro',{
       method:'POST',headers:{'apikey':cfg.anonKey,'Content-Type':'application/json'},
-      body:JSON.stringify({name:n,class_name:c,details:d,song_name:song}),signal:controller.signal
+      body:JSON.stringify({name:n,class_name:c,details:d}),signal:controller.signal
     });
     clearTimeout(timer);
     let data=null;try{data=await res.json()}catch{}
