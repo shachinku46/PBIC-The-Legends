@@ -130,6 +130,20 @@ textarea{min-height:110px;resize:vertical}
 
 }
 
+/* YouTube music search */
+.yt-search-box{margin-top:14px;border:1px solid var(--line);background:#fafaff;border-radius:16px;padding:14px}
+.yt-search-row{display:grid;grid-template-columns:1fr auto;gap:9px}
+.yt-search-row input{margin:0}
+.yt-search-row button{border:0;background:var(--ink);color:#fff;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer}
+.yt-results{display:grid;gap:8px;margin-top:12px}
+.yt-result{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:9px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
+.yt-result:hover{border-color:#cfc9ff;box-shadow:0 5px 18px rgba(10,14,39,.07)}
+.yt-thumb{width:96px;height:54px;object-fit:cover;border-radius:8px;background:#eee}
+.yt-meta{min-width:0}.yt-title{font-weight:800;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.yt-channel{font-size:.78rem;color:var(--muted);margin-top:3px}
+.yt-use{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.yt-player-wrap{margin-top:12px;border-radius:14px;overflow:hidden;background:#000}.yt-player-wrap iframe{display:block;width:100%;height:220px;border:0}.yt-selected{padding:9px 12px;background:#111;color:#fff;font-weight:700;font-size:.85rem}
+@media(max-width:680px){.yt-search-row{grid-template-columns:1fr}.yt-result{grid-template-columns:72px 1fr}.yt-thumb{width:72px;height:42px}.yt-use{grid-column:2;justify-self:start}.yt-player-wrap iframe{height:200px}}
+
 /* Enhanced crop + real AI */
 .crop-tip{font-size:.82rem;color:var(--muted);margin-top:6px}
 .crop-actions{display:flex;gap:7px;flex-wrap:wrap}
@@ -216,10 +230,21 @@ textarea{min-height:110px;resize:vertical}
  </div>
  <div class="music">
   <div class="music-grid">
-   <div class="field"><label for="songName">Song name</label><input id="songName" maxlength="120" placeholder="Believer"></div>
+   <div class="field"><label for="songName">Song name</label><input id="songName" maxlength="120" placeholder="Search or enter a song name"></div>
    <div class="field"><label for="song">Upload audio</label><input id="song" type="file" accept="audio/*"></div>
   </div>
-  <div class="helper">Use music you have permission to upload.</div>
+  <div class="yt-search-box">
+    <div class="yt-search-row">
+      <input id="ytQuery" maxlength="120" placeholder="Search songs on YouTube…">
+      <button type="button" id="ytSearchBtn">🔎 Search</button>
+    </div>
+    <div id="ytResults" class="yt-results"></div>
+    <div id="ytPlayerWrap" class="yt-player-wrap" style="display:none">
+      <div class="yt-selected" id="ytSelected">No song selected</div>
+      <iframe id="ytPlayer" title="YouTube song preview" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    </div>
+  </div>
+  <div id="selectedMusic" class="helper">You can upload your own audio, or search YouTube and choose a result. YouTube songs play through the official embedded player.</div>
  </div>
 </section>
 
@@ -257,6 +282,7 @@ textarea{min-height:110px;resize:vertical}
 const $=id=>document.getElementById(id);
 let aiIntro='',croppedBlob=null,objectUrl=null,aspect='square';
 let crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};
+let selectedYoutubeId='',selectedYoutubeTitle='';
 const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><rect width="100%" height="100%" fill="#eef0f7"/><text x="50%" y="51%" fill="#8992a6" font-family="Arial" font-size="26" text-anchor="middle">ADD PHOTO</text></svg>');
 $('avatar').src=placeholder;
 $('choosePhoto').onclick=()=>$('photo').click();
@@ -361,6 +387,45 @@ $('useCrop').onclick=()=>{
   },'image/jpeg',.94);
 };
 
+async function searchYouTube(){
+  const q=$('ytQuery').value.trim();
+  const results=$('ytResults');
+  const btn=$('ytSearchBtn');
+  if(!q){results.innerHTML='<div class="helper">Type a song name first.</div>';return}
+  btn.disabled=true;btn.textContent='Searching…';results.innerHTML='<div class="helper">Searching YouTube…</div>';
+  try{
+    const cfg=window.PBIC_SUPABASE;
+    if(!cfg?.url||cfg.url.startsWith('YOUR_'))throw Error('Supabase configuration is missing.');
+    if(!cfg.anonKey||cfg.anonKey.startsWith('YOUR_'))throw Error('Supabase publishable key is missing.');
+    const url=cfg.url.replace(/\/$/,'')+'/functions/v1/youtube-search?q='+encodeURIComponent(q);
+    const res=await fetch(url,{method:'GET',headers:{'apikey':cfg.anonKey}});
+    let data=null;try{data=await res.json()}catch{}
+    if(!res.ok)throw Error(data?.error||`YouTube search failed (${res.status})`);
+    if(!Array.isArray(data?.items)||!data.items.length){results.innerHTML='<div class="helper">No songs found. Try another search.</div>';return}
+    results.innerHTML='';
+    data.items.forEach(item=>{
+      const row=document.createElement('div');row.className='yt-result';
+      row.innerHTML=`<img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><button type="button" class="yt-use">▶ Choose</button>`;
+      row.addEventListener('click',()=>selectYouTubeSong(item));
+      row.querySelector('.yt-use').addEventListener('click',e=>{e.stopPropagation();selectYouTubeSong(item)});
+      results.appendChild(row);
+    });
+  }catch(err){console.error(err);results.innerHTML='<div class="helper" style="color:#b42318">× '+(err?.message||String(err))+'</div>'}
+  finally{btn.disabled=false;btn.textContent='🔎 Search'}
+}
+function selectYouTubeSong(item){
+  selectedYoutubeId=item.videoId;selectedYoutubeTitle=item.title||'YouTube song';
+  $('songName').value=selectedYoutubeTitle;
+  $('song').value='';
+  $('ytSelected').textContent='▶ '+selectedYoutubeTitle;
+  $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
+  $('ytPlayerWrap').style.display='block';
+  $('selectedMusic').textContent='✓ YouTube song selected. Click another result to change it.';
+}
+$('ytSearchBtn').onclick=searchYouTube;
+$('ytQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchYouTube()}});
+$('song').addEventListener('change',()=>{if($('song').files[0]){selectedYoutubeId='';selectedYoutubeTitle='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('selectedMusic').textContent='✓ Uploaded audio selected.'}});
+
 async function generateRealAI(){
   const n=$('name').value.trim();
   const c=$('className').value;
@@ -408,10 +473,10 @@ $('form').addEventListener('submit',async e=>{
     if(r.error)throw Error('Photo upload failed: '+r.error.message);
     const photoUrl=sb.storage.from('pbic-photos').getPublicUrl(photoPath).data.publicUrl;
     let songUrl=null;const song=$('song').files[0];
-    if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');r=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false,contentType:song.type||undefined});if(r.error)throw Error('Song upload failed: '+r.error.message);songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}
+    if(selectedYoutubeId){songUrl='youtube:'+selectedYoutubeId}else if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');r=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false,contentType:song.type||undefined});if(r.error)throw Error('Song upload failed: '+r.error.message);songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}
     const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};
     r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);
-    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';$('avatar').src=placeholder;$('aiResult').style.display='none';
+    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('selectedMusic').textContent='You can upload your own audio, or search YouTube and choose a result.';
   }catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}
 });
 </script>
