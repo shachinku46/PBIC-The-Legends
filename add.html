@@ -136,7 +136,7 @@ textarea{min-height:110px;resize:vertical}
 .yt-search-row input{margin:0}
 .yt-search-row button{border:0;background:var(--ink);color:#fff;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer}
 .yt-results{display:grid;gap:8px;margin-top:12px}
-.yt-result{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:9px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}.yt-result.chosen{border-color:#8fd7b1;background:#f5fff9}
+.yt-result{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:9px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer}
 .yt-result:hover{border-color:#cfc9ff;box-shadow:0 5px 18px rgba(10,14,39,.07)}
 .yt-thumb{width:96px;height:54px;object-fit:cover;border-radius:8px;background:#eee}
 .yt-meta{min-width:0}.yt-title{font-weight:800;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.yt-channel{font-size:.78rem;color:var(--muted);margin-top:3px}
@@ -259,7 +259,7 @@ textarea{min-height:110px;resize:vertical}
       <iframe id="ytPlayer" title="YouTube song preview" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
     </div>
   </div>
-  <div id="selectedMusic" class="helper">Search YouTube: ▶ Preview plays a result. ✓ Choose selects it without playing. Only the chosen song is attached to this profile. Your own permitted MP3 can be uploaded separately.</div>
+  <div id="selectedMusic" class="helper">Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.</div>
  </div>
 </section>
 
@@ -420,7 +420,6 @@ async function searchYouTube(){
     results.innerHTML='';
     data.items.forEach(item=>{
       const row=document.createElement('div');row.className='yt-result';
-      row.dataset.videoId=item.videoId;
       row.innerHTML=`<img class="yt-thumb" src="${item.thumbnail}" alt=""><div class="yt-meta"><div class="yt-title">${item.title}</div><div class="yt-channel">${item.channelTitle||'YouTube'}</div></div><div class="yt-actions"><button type="button" class="yt-preview">▶ Preview</button><button type="button" class="yt-use">✓ Choose</button></div>`;
       row.querySelector('.yt-preview').addEventListener('click',e=>{e.stopPropagation();previewYouTubeSong(item)});
       row.querySelector('.yt-use').addEventListener('click',e=>{e.stopPropagation();selectYouTubeSong(item)});
@@ -430,35 +429,26 @@ async function searchYouTube(){
   finally{btn.disabled=false;btn.textContent='🔎 Search'}
 }
 function previewYouTubeSong(item){
+  selectedYoutubeId='';
+  selectedYoutubeTitle='';
+  uploadedSongUrl='';
+  uploadedSongPath='';
   $('song').value='';
   $('songName').value=item.title||'YouTube song';
   $('ytSelected').textContent='▶ Previewing: '+(item.title||'YouTube song');
   $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
   $('ytPlayerWrap').style.display='block';
-  $('selectedMusic').textContent='Preview only — this does not choose the song.';
-}
-function updateYouTubeChoiceButtons(){
-  document.querySelectorAll('.yt-result').forEach(row=>{
-    const btn=row.querySelector('.yt-use');
-    if(!btn)return;
-    const chosen=row.dataset.videoId===selectedYoutubeId;
-    row.classList.toggle('chosen',chosen);
-    btn.textContent=chosen?'✓ Chosen':'✓ Choose';
-  });
+  $('selectedMusic').textContent='Preview only — click ✓ Choose to attach this YouTube song to the profile.';
 }
 function selectYouTubeSong(item){
-  selectedYoutubeId=item.videoId;
-  selectedYoutubeTitle=item.title||'YouTube song';
-  uploadedSongUrl='';
-  uploadedSongPath='';
+  selectedYoutubeId=item.videoId;selectedYoutubeTitle=item.title||'YouTube song';
   $('songName').value=selectedYoutubeTitle;
   $('song').value='';
-  // Choosing never starts playback.
-  $('ytPlayer').src='';
-  $('ytPlayerWrap').style.display='none';
   $('ytSelected').textContent='✓ Chosen: '+selectedYoutubeTitle;
-  $('selectedMusic').textContent='✓ Chosen for this profile. Click Preview to listen; choosing another result will move the ✓.';
-  updateYouTubeChoiceButtons();
+  $('ytPlayer').src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.videoId)+'?autoplay=1&playsinline=1&rel=0';
+  $('ytPlayerWrap').style.display='block';
+  $('selectedMusic').textContent='✓ YouTube song chosen and attached to this profile. It will be saved as a YouTube link when you submit.';
+
 }
 $('ytSearchBtn').onclick=searchYouTube;
 $('ytQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchYouTube()}});
@@ -471,7 +461,6 @@ $('song').addEventListener('change',async ()=>{
   selectedYoutubeTitle='';
   uploadedSongUrl='';
   uploadedSongPath='';
-  updateYouTubeChoiceButtons();
   $('ytPlayer').src='';
   $('ytPlayerWrap').style.display='none';
 
@@ -576,7 +565,7 @@ $('form').addEventListener('submit',async e=>{
     }
     const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};
     r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);
-    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').textContent='Search YouTube: ▶ Preview plays a result. ✓ Choose selects it without playing. Only the chosen song is attached to this profile. Your own permitted MP3 can be uploaded separately.';
+    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').textContent='Search YouTube: Preview a result, then click ✓ Choose to attach it to this profile. Your own permitted MP3 can be uploaded separately.';
   }catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}
 });
 </script>
