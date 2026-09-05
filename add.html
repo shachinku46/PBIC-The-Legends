@@ -231,7 +231,11 @@ textarea{min-height:110px;resize:vertical}
  <div class="music">
   <div class="music-grid">
    <div class="field"><label for="songName">Song name</label><input id="songName" maxlength="120" placeholder="Search or enter a song name"></div>
-   <div class="field"><label for="song">Upload audio</label><input id="song" type="file" accept="audio/*"></div>
+   <div class="field">
+    <label for="song">Upload your MP3</label>
+    <input id="song" type="file" accept=".mp3,audio/mpeg,audio/mp3">
+    <div id="songUploadStatus" class="helper">Choose an MP3 you have permission to use. It will upload automatically.</div>
+   </div>
   </div>
   <div class="yt-search-box">
     <div class="yt-search-row">
@@ -282,7 +286,7 @@ textarea{min-height:110px;resize:vertical}
 const $=id=>document.getElementById(id);
 let aiIntro='',croppedBlob=null,objectUrl=null,aspect='square';
 let crop={x:0,y:0,scale:1.2,drag:false,sx:0,sy:0,ox:0,oy:0,base:1};
-let selectedYoutubeId='',selectedYoutubeTitle='';
+let selectedYoutubeId='',selectedYoutubeTitle='',uploadedSongUrl='',uploadedSongPath='';
 const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500"><rect width="100%" height="100%" fill="#eef0f7"/><text x="50%" y="51%" fill="#8992a6" font-family="Arial" font-size="26" text-anchor="middle">ADD PHOTO</text></svg>');
 $('avatar').src=placeholder;
 $('choosePhoto').onclick=()=>$('photo').click();
@@ -424,7 +428,62 @@ function selectYouTubeSong(item){
 }
 $('ytSearchBtn').onclick=searchYouTube;
 $('ytQuery').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchYouTube()}});
-$('song').addEventListener('change',()=>{if($('song').files[0]){selectedYoutubeId='';selectedYoutubeTitle='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('selectedMusic').textContent='✓ Uploaded audio selected.'}});
+$('song').addEventListener('change',async ()=>{
+  const file=$('song').files[0];
+  const uploadStatus=$('songUploadStatus');
+  if(!file)return;
+
+  selectedYoutubeId='';
+  selectedYoutubeTitle='';
+  uploadedSongUrl='';
+  uploadedSongPath='';
+  $('ytPlayer').src='';
+  $('ytPlayerWrap').style.display='none';
+
+  if(file.type!=='audio/mpeg' && !/\.mp3$/i.test(file.name)){
+    $('song').value='';
+    uploadStatus.textContent='× Please choose an MP3 file.';
+    uploadStatus.style.color='#b42318';
+    return;
+  }
+
+  if(file.size > 15*1024*1024){
+    $('song').value='';
+    uploadStatus.textContent='× MP3 must be 15 MB or smaller.';
+    uploadStatus.style.color='#b42318';
+    return;
+  }
+
+  try{
+    const sb=await makeClient();
+    const id=crypto.randomUUID();
+    const safeName=file.name.replace(/[^a-z0-9._-]/gi,'_');
+    const path=id+'-'+safeName;
+
+    uploadStatus.textContent='Uploading MP3…';
+    uploadStatus.style.color='';
+
+    const r=await sb.storage.from('pbic-songs').upload(path,file,{
+      upsert:false,
+      contentType:'audio/mpeg'
+    });
+    if(r.error)throw Error(r.error.message);
+
+    uploadedSongPath=path;
+    uploadedSongUrl=sb.storage.from('pbic-songs').getPublicUrl(path).data.publicUrl;
+    $('songName').value=$('songName').value.trim() || file.name.replace(/\.mp3$/i,'');
+    uploadStatus.textContent='✓ MP3 uploaded and ready to attach to your profile.';
+    uploadStatus.style.color='#16794a';
+    $('selectedMusic').textContent='✓ Your MP3 is uploaded and will be attached to this profile.';
+  }catch(err){
+    console.error(err);
+    $('song').value='';
+    uploadedSongUrl='';
+    uploadedSongPath='';
+    uploadStatus.textContent='× MP3 upload failed: '+(err?.message||String(err));
+    uploadStatus.style.color='#b42318';
+  }
+});
 
 async function generateRealAI(){
   const n=$('name').value.trim();
@@ -472,11 +531,17 @@ $('form').addEventListener('submit',async e=>{
     let r=await sb.storage.from('pbic-photos').upload(photoPath,croppedBlob,{upsert:false,contentType:'image/jpeg'});
     if(r.error)throw Error('Photo upload failed: '+r.error.message);
     const photoUrl=sb.storage.from('pbic-photos').getPublicUrl(photoPath).data.publicUrl;
-    let songUrl=null;const song=$('song').files[0];
-    if(selectedYoutubeId){songUrl='youtube:'+selectedYoutubeId}else if(song){const sp=id+'-'+song.name.replace(/[^a-z0-9._-]/gi,'_');r=await sb.storage.from('pbic-songs').upload(sp,song,{upsert:false,contentType:song.type||undefined});if(r.error)throw Error('Song upload failed: '+r.error.message);songUrl=sb.storage.from('pbic-songs').getPublicUrl(sp).data.publicUrl}
+    let songUrl=null;
+    if(selectedYoutubeId){
+      songUrl='youtube:'+selectedYoutubeId;
+    }else if(uploadedSongUrl){
+      songUrl=uploadedSongUrl;
+    }else if($('song').files[0]){
+      throw Error('Please wait for the MP3 upload to finish.');
+    }
     const payload={name:$('name').value.trim(),instagram:$('instagram').value.trim(),class_name:$('className').value,details:$('details').value.trim(),photo_url:photoUrl,song_url:songUrl,ai_intro:aiIntro,status:'pending'};
     r=await sb.from('submissions').insert(payload);if(r.error)throw Error('Database submission failed: '+r.error.message);
-    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('selectedMusic').textContent='You can upload your own audio, or search YouTube and choose a result.';
+    st.textContent='✓ Submitted successfully — your profile is waiting for admin approval.';st.style.borderColor='#b9e6c8';$('form').reset();croppedBlob=null;aiIntro='';selectedYoutubeId='';selectedYoutubeTitle='';uploadedSongUrl='';uploadedSongPath='';$('avatar').src=placeholder;$('aiResult').style.display='none';$('ytResults').innerHTML='';$('ytPlayer').src='';$('ytPlayerWrap').style.display='none';$('songUploadStatus').textContent='Choose an MP3 you have permission to use. It will upload automatically.';$('songUploadStatus').style.color='';$('selectedMusic').textContent='You can upload your own MP3, or search YouTube and choose a result.';
   }catch(err){console.error(err);st.textContent='× '+(err?.message||String(err));st.style.borderColor='#f2c4c4'}
 });
 </script>
