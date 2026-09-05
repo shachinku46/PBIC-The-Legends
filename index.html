@@ -301,7 +301,7 @@
       const wrap=document.getElementById('approvedProfiles');
       data.forEach((p,idx)=>{
         const card=document.createElement('div'); card.className='photo-card'; card.style.setProperty('--tint','rgba(34,211,238,.4)');
-        card.innerHTML=`<a href="profile.html?name=%24%7BencodeURIComponent%28p.name%29%7D&img=%24%7BencodeURIComponent%28p.photo_url%29%7D&insta=%24%7BencodeURIComponent%28p.instagram%7C%7C%27%27%29%7D&music=%24%7BencodeURIComponent%28p.song_url%7C%7C%27%27%29%7D%26details%3D%24%7BencodeURIComponent%28p.details%7C%7C%27%27%29%7D%26intro%3D%24%7BencodeURIComponent%28p.ai_intro%7C%7C%27%27%29%7D"><div class="photo-frame"><span class="roster-no">${idx + 9}</span><img src="${p.photo_url}" loading="lazy" decoding="async" alt="${p.name}"><div class="photo-name">${p.name}<small>New Legend</small></div></div></a>`;
+        card.innerHTML=`<a href="profile.html?name=${encodeURIComponent(p.name)}&img=${encodeURIComponent(p.photo_url)}&insta=${encodeURIComponent(p.instagram||'')}&music=${encodeURIComponent(p.song_url||'')}&details=${encodeURIComponent(p.details||'')}&intro=${encodeURIComponent(p.ai_intro||'')}"><div class="photo-frame"><span class="roster-no">${idx + 9}</span><img src="${p.photo_url}" loading="lazy" decoding="async" alt="${p.name}"><div class="photo-name">${p.name}<small>New Legend</small></div></div></a>`;
         wrap.appendChild(card);
       });
     }catch(e){ console.warn('PBIC backend unavailable',e); }
