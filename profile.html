@@ -162,104 +162,47 @@
 
 <script>
   const params = new URLSearchParams(window.location.search);
-  let name = params.get("name") || "";
-  let img = params.get("img") || "";
-  let insta = params.get("insta") || "";
-  let music = params.get("music") || "";
+  const name = params.get("name");
+  const img = params.get("img");
+  const insta = params.get("insta");
+  const music = params.get("music");
 
-  const userName = document.getElementById("userName");
-  const userImg = document.getElementById("userImg");
-  const instaLink = document.getElementById("instaLink");
-  const musicBtn = document.getElementById("musicBtn");
-
-  function applyProfileData(p) {
-    if (!p) return;
-    name = p.name || name;
-    img = p.photo_url || img;
-    insta = p.instagram || insta;
-    music = p.song_url || music;
-
-    if (name) {
-      userName.textContent = name;
-      document.title = name + " | PBIC — The Legends";
-    }
-    if (img) userImg.src = img;
-
-    if (insta) {
-      instaLink.href = "https://www.instagram.com/" + encodeURIComponent(insta);
-      document.getElementById("instaText").textContent = "@" + insta;
-      instaLink.style.display = "inline-flex";
-    } else {
-      instaLink.style.display = "none";
-    }
+  if (name) {
+    document.getElementById("userName").textContent = name;
+    document.title = name + " | PBIC — The Legends";
   }
+  if (img) document.getElementById("userImg").src = img;
 
-  applyProfileData({name, photo_url:img, instagram:insta, song_url:music});
-
-  // If the profile was opened from an older/broken index link, recover the
-  // photo and song directly from the approved Supabase profile.
-  async function recoverFromSupabase() {
-    if (!name) return;
-    if (img && music) return;
-    try {
-      const cfg = window.PBIC_SUPABASE || {};
-      if (!cfg.url || !cfg.anonKey) return;
-      const safeFetch = async (input, init = {}) => {
-        const h = new Headers(init.headers || {});
-        if (h.get("Authorization") === `Bearer ${cfg.anonKey}`) h.delete("Authorization");
-        return fetch(input, {...init, headers:h});
-      };
-      const client = window.supabase.createClient(cfg.url, cfg.anonKey, {global:{fetch:safeFetch}});
-      const {data, error} = await client.from("profiles").select("*").eq("name", name).limit(1).maybeSingle();
-      if (!error && data) {
-        applyProfileData(data);
-        setupMusic();
-      }
-    } catch (e) {
-      console.warn("Profile recovery failed:", e);
-    }
+  const instaLink = document.getElementById("instaLink");
+  if (insta) {
+    instaLink.href = "https://www.instagram.com/" + insta;
+    document.getElementById("instaText").textContent = "@" + insta;
+  } else {
+    instaLink.style.display = "none";
   }
 
   const audio = document.getElementById("bgMusic");
+  const musicBtn = document.getElementById("musicBtn");
   const playIcon = document.getElementById("playIcon");
   const muteIcon = document.getElementById("muteIcon");
   const bars = document.getElementById("bars");
   const musicLabel = document.getElementById("musicLabel");
+  let isPlaying = false;
+
   const ytPlayerBox = document.getElementById("ytProfilePlayer");
   const ytFrame = document.getElementById("ytProfileFrame");
-  let isPlaying = false;
-  let ytPlaying = false;
-  let ytStarted = false;
+  const isYouTube = /^youtube:[A-Za-z0-9_-]+$/.test(music || "");
+  const youtubeId = isYouTube ? music.slice(8) : "";
 
-  function setupMusic() {
-    const isYouTube = /^youtube:[A-Za-z0-9_-]+$/.test(music || "");
-    const youtubeId = isYouTube ? music.slice(8) : "";
-
-    ytPlaying = false;
-    ytStarted = false;
-    audio.pause();
-    audio.removeAttribute("src");
-    ytFrame.src = "";
-
-    if (isYouTube) {
-      musicBtn.style.display = "flex";
-      musicLabel.textContent = "Play track";
-      musicBtn.onclick = handleMusic;
-    } else if (music) {
-      musicBtn.style.display = "flex";
-      audio.preload = "none";
-      audio.src = music;
-      musicBtn.onclick = handleMusic;
-    } else {
-      musicBtn.style.display = "none";
-    }
-
-    window.__pbicIsYouTube = isYouTube;
-    window.__pbicYoutubeId = youtubeId;
+  if (isYouTube) {
+    musicBtn.style.display = "flex";
+    musicLabel.textContent = "Play track";
+  } else if (music) {
+    audio.preload = "none";
+    audio.src = music;
+  } else {
+    musicBtn.style.display = "none";
   }
-
-  setupMusic();
-  recoverFromSupabase();
 
   function setState(playing, muted) {
     if (playing && !muted) {
@@ -283,33 +226,38 @@
     }
   }
 
-  // YouTube is played through the official embedded player. The player
-  // remains off-screen so the profile shows only the PBIC Play track control.
-  function startYouTubeFromClick(){
-    const youtubeId = window.__pbicYoutubeId;
-    if(!youtubeId) return;
+  let ytPlaying=false;
+  let ytStarted=false;
 
-    const origin = encodeURIComponent(window.location.origin);
-    ytFrame.src =
+  // Use a direct iframe URL from the user's Play-track click.
+  // This keeps the click as the browser's user gesture, which is important
+  // for audio playback. The video itself stays off-screen.
+  function startYouTubeFromClick(){
+    if(!isYouTube)return;
+
+    const src =
       "https://www.youtube-nocookie.com/embed/" +
       encodeURIComponent(youtubeId) +
-      "?autoplay=1&controls=0&playsinline=1&rel=0&modestbranding=1" +
-      "&enablejsapi=1&origin=" + origin;
+      "?autoplay=1&controls=0&playsinline=1&rel=0&modestbranding=1&enablejsapi=1";
 
-    ytStarted = true;
-    ytPlaying = true;
+    ytFrame.src=src;
+    ytStarted=true;
+    ytPlaying=true;
     setState(true,false);
+    musicLabel.textContent="Playing";
   }
 
   function pauseYouTube(){
-    if(ytFrame.contentWindow){
-      try{
-        ytFrame.contentWindow.postMessage(JSON.stringify({
-          event:"command", func:"pauseVideo", args:[]
-        }), "https://www.youtube-nocookie.com");
-      }catch(e){}
-    }
-    ytPlaying = false;
+    if(!ytFrame.contentWindow)return;
+    ytFrame.contentWindow.postMessage(
+      JSON.stringify({
+        event:"command",
+        func:"pauseVideo",
+        args:[]
+      }),
+      "https://www.youtube-nocookie.com"
+    );
+    ytPlaying=false;
     setState(false,false);
   }
 
@@ -318,38 +266,35 @@
       startYouTubeFromClick();
       return;
     }
-    if(ytFrame.contentWindow){
-      try{
-        ytFrame.contentWindow.postMessage(JSON.stringify({
-          event:"command", func:"playVideo", args:[]
-        }), "https://www.youtube-nocookie.com");
-        ytPlaying = true;
-        setState(true,false);
-      }catch(e){
-        startYouTubeFromClick();
-      }
-    } else {
-      startYouTubeFromClick();
-    }
-  }
 
-  function handleMusic() {
-    if (window.__pbicIsYouTube) {
-      if (!ytPlaying) playYouTube();
-      else pauseYouTube();
+    if(!ytFrame.contentWindow){
+      startYouTubeFromClick();
       return;
     }
 
-    if (!music) return;
+    ytFrame.contentWindow.postMessage(
+      JSON.stringify({
+        event:"command",
+        func:"playVideo",
+        args:[]
+      }),
+      "https://www.youtube-nocookie.com"
+    );
+    ytPlaying=true;
+    setState(true,false);
+  }
 
-    if (!isPlaying) {
-      const promise = audio.play();
-      if (promise && typeof promise.catch === "function") {
-        promise.catch(err => {
-          console.warn("Audio playback failed:", err);
-          setState(false,false);
-        });
+  function handleMusic() {
+    if (isYouTube) {
+      if (!ytPlaying) {
+        playYouTube();
+      } else {
+        pauseYouTube();
       }
+      return;
+    }
+    if (!isPlaying) {
+      audio.play();
       isPlaying = true;
       setState(true, false);
     } else {
