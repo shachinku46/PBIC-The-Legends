@@ -125,7 +125,7 @@
   <span id="musicLabel">Play track</span>
 </div>
 <audio id="bgMusic" loop></audio>
-<div class="yt-profile-player" id="ytProfilePlayer" aria-hidden="true"><iframe id="ytProfileFrame" title="YouTube audio player" allow="autoplay; encrypted-media" tabindex="-1"></iframe></div>
+<div class="yt-profile-player" id="ytProfilePlayer" aria-hidden="true"><iframe id="ytProfileFrame" title="YouTube audio player" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1"></iframe></div>
 
 <section class="hero">
   <div class="hero-content">
@@ -231,16 +231,10 @@
     }
   }
 
-  function loadYouTubeApi(){
-    if(ytApiLoading || window.YT?.Player)return;
-    ytApiLoading=true;
-    const tag=document.createElement("script");
-    tag.src="https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-  }
+  let ytPendingPlay=false;
 
-  window.onYouTubeIframeAPIReady=function(){
-    if(!isYouTube)return;
+  function createYouTubePlayer(){
+    if(!isYouTube || ytPlayer || !window.YT?.Player)return;
     ytPlayer=new YT.Player("ytProfileFrame",{
       width:"1",
       height:"1",
@@ -251,40 +245,78 @@
         playsinline:1,
         rel:0,
         modestbranding:1,
+        enablejsapi:1,
         origin:window.location.origin
       },
       events:{
-        onReady:function(){ytReady=true;},
+        onReady:function(){
+          ytReady=true;
+          if(ytPendingPlay){
+            ytPendingPlay=false;
+            try{ ytPlayer.unMute(); ytPlayer.playVideo(); }catch(e){ console.error(e); }
+          }
+        },
         onStateChange:function(event){
           if(event.data===YT.PlayerState.PLAYING){
             ytPlaying=true; setState(true,false);
           }else if(event.data===YT.PlayerState.PAUSED || event.data===YT.PlayerState.ENDED){
             ytPlaying=false; setState(false,false);
+          }else if(event.data===YT.PlayerState.BUFFERING){
+            musicLabel.textContent="Loading…";
           }
+        },
+        onError:function(event){
+          console.error("YouTube player error:",event.data);
+          ytPlaying=false;
+          setState(false,false);
+          musicLabel.textContent="Song unavailable";
         }
       }
     });
+  }
+
+  function loadYouTubeApi(){
+    if(!isYouTube)return;
+    if(window.YT?.Player){
+      createYouTubePlayer();
+      return;
+    }
+    if(ytApiLoading)return;
+    ytApiLoading=true;
+    const tag=document.createElement("script");
+    tag.src="https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  }
+
+  window.onYouTubeIframeAPIReady=function(){
+    if(isYouTube)createYouTubePlayer();
   };
 
   function playYouTube(){
-    if(!ytPlayer){
+    if(!ytPlayer || !ytReady){
+      ytPendingPlay=true;
       loadYouTubeApi();
-      const timer=setInterval(()=>{
-        if(ytPlayer && ytReady){
-          clearInterval(timer);
-          ytPlayer.playVideo();
-        }
-      },100);
-      setTimeout(()=>clearInterval(timer),10000);
-    }else{
+      return;
+    }
+    try{
+      ytPlayer.unMute();
       ytPlayer.playVideo();
+    }catch(e){
+      console.error("YouTube playback error:",e);
     }
   }
 
+  // Pre-load the official YouTube player while the page is opening.
+  // This makes the later Play track click a direct user-initiated play call.
+  if(isYouTube)loadYouTubeApi();
+
   function handleMusic() {
     if (isYouTube) {
-      if (!ytPlaying) playYouTube();
-      else ytPlayer.pauseVideo();
+      if (!ytPlaying) {
+        playYouTube();
+      } else if (ytPlayer) {
+        ytPlayer.pauseVideo();
+      }
       return;
     }
     if (!isPlaying) {
